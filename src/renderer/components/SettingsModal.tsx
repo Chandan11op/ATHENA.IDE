@@ -41,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600 }}>NOVA IDE Settings</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Athena.IDE Settings</h2>
           <button onClick={onClose} style={{ padding: '4px', color: 'var(--text-muted)' }}>
             <X size={16} />
           </button>

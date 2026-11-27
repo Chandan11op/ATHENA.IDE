@@ -16,7 +16,7 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 640,
     frame: true,
-    title: 'NOVA IDE',
+    title: 'Athena.IDE',
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),

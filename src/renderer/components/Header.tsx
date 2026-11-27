@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, letterSpacing: '0.5px' }}>
           <Sparkles size={16} color="var(--accent-primary)" />
           <span style={{ fontSize: '14px', background: 'linear-gradient(90deg, #60a5fa, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            NOVA IDE
+            Athena.IDE
           </span>
           <span style={{ fontSize: '10px', background: 'var(--bg-surface-elevated)', padding: '1px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>
             MVP

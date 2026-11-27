@@ -12,7 +12,7 @@ export function registerIpcHandlers(
   // Application Information
   ipcMain.handle(IPC_CHANNELS.APP_GET_INFO, async (): Promise<AppInfo> => {
     return {
-      name: 'NOVA IDE',
+      name: 'Athena.IDE',
       version: '0.1.0',
       platform: process.platform,
       nodeVersion: process.versions.node,
@@ -68,7 +68,7 @@ export function registerIpcHandlers(
     }
 
     const result = await dialog.showOpenDialog(win, {
-      title: 'Select NOVA Project Workspace',
+      title: 'Select Athena.IDE Project Workspace',
       properties: ['openDirectory', 'createDirectory'],
     });
 

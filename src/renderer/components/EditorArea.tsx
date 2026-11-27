@@ -34,7 +34,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({ mode, currentWorkspace, 
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>
             Describe your software idea in plain language in the assistant panel on the right. 
-            NOVA will create the project files locally, let you preview the result, and help fix errors automatically.
+            Athena.IDE will create the project files locally, let you preview the result, and help fix errors automatically.
           </p>
         </div>
 
@@ -58,7 +58,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({ mode, currentWorkspace, 
               <span>1. Choose Workspace</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-              Select a safe local folder where NOVA creates and saves all project code.
+              Select a safe local folder where Athena.IDE creates and saves all project code.
             </p>
             {currentWorkspace ? (
               <span style={{ color: 'var(--success)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -197,7 +197,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({ mode, currentWorkspace, 
         color: 'var(--text-secondary)',
         overflowY: 'auto',
       }}>
-        <p style={{ color: 'var(--accent-primary)' }}>// Welcome to NOVA IDE — Developer Mode</p>
+        <p style={{ color: 'var(--accent-primary)' }}>// Welcome to Athena.IDE — Developer Mode</p>
         <p>// Offline-first, secure local AI software development environment.</p>
         <br />
         <p>1. Connect to local Ollama on 127.0.0.1:11434</p>

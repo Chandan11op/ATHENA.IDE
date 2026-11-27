@@ -24,7 +24,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: 'Hello! I am NOVA, your offline AI development assistant. Connect your local Ollama model to begin creating, running, and debugging web projects!',
+      text: 'Hello! I am Athena, your offline AI development assistant. Connect your local Ollama model to begin creating, running, and debugging web projects!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -120,7 +120,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
             }}>
               {msg.sender === 'user' ? <User size={12} /> : <Bot size={12} />}
-              <span>{msg.sender === 'user' ? 'You' : msg.sender === 'system' ? 'System' : 'NOVA'}</span>
+              <span>{msg.sender === 'user' ? 'You' : msg.sender === 'system' ? 'System' : 'Athena'}</span>
               <span>•</span>
               <span>{msg.timestamp}</span>
             </div>
@@ -155,7 +155,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               Offline AI Setup Guide
             </p>
             <p style={{ marginBottom: '6px' }}>
-              NOVA runs strictly offline without cloud APIs. You will need to install Ollama locally.
+              Athena.IDE runs strictly offline without cloud APIs. You will need to install Ollama locally.
             </p>
             <button
               onClick={onOpenOnboarding}

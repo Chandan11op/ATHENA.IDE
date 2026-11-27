@@ -27,7 +27,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({ systemMetrics, ollamaS
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Activity size={12} color="var(--accent-primary)" />
-          <span>NOVA Engine: Ready</span>
+          <span>Athena Engine: Ready</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Terminal size={12} />
