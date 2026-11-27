@@ -1,20 +1,30 @@
 import React from 'react';
-import { 
-  Laptop, 
-  Settings, 
-  WifiOff, 
-  CheckCircle, 
-  AlertTriangle, 
-  Sparkles, 
+import {
+  Search,
+  PanelLeft,
+  PanelBottom,
+  PanelRight,
+  Settings,
+  CheckCircle,
+  AlertTriangle,
+  FolderOpen,
+  Laptop,
   Code2,
-  FolderOpen
 } from 'lucide-react';
 import { AppMode, OllamaStatus, NovaSettings } from '@common/types.js';
+import { AthenaMark } from './AthenaMark.js';
 
 interface HeaderProps {
   settings: NovaSettings;
   ollamaStatus: OllamaStatus | null;
   currentWorkspace: string | null;
+  isSidebarVisible: boolean;
+  isBottomPanelVisible: boolean;
+  isAgentPanelVisible: boolean;
+  onToggleSidebar: () => void;
+  onToggleBottomPanel: () => void;
+  onToggleAgentPanel: () => void;
+  onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
   onSelectWorkspace: () => void;
   onToggleMode: (mode: AppMode) => void;
@@ -25,137 +35,184 @@ export const Header: React.FC<HeaderProps> = ({
   settings,
   ollamaStatus,
   currentWorkspace,
+  isSidebarVisible,
+  isBottomPanelVisible,
+  isAgentPanelVisible,
+  onToggleSidebar,
+  onToggleBottomPanel,
+  onToggleAgentPanel,
+  onOpenCommandPalette,
   onOpenSettings,
   onSelectWorkspace,
   onToggleMode,
   onOpenOnboarding,
 }) => {
   const isOnline = ollamaStatus?.isAvailable ?? false;
-  const projectName = currentWorkspace 
-    ? currentWorkspace.split(/[\\/]/).pop() 
-    : 'No Project Selected';
+  const projectName = currentWorkspace
+    ? currentWorkspace.split(/[\\/]/).pop()
+    : 'No Workspace';
 
   return (
-    <header style={{
-      height: '42px',
-      background: 'var(--bg-surface)',
-      borderBottom: '1px solid var(--border-subtle)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 12px',
-      WebkitAppRegion: 'drag',
-    } as React.CSSProperties}>
-      {/* Left: Brand and Workspace */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, letterSpacing: '0.5px' }}>
-          <Sparkles size={16} color="var(--accent-primary)" />
-          <span style={{ fontSize: '14px', background: 'linear-gradient(90deg, #60a5fa, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Athena.IDE
-          </span>
-          <span style={{ fontSize: '10px', background: 'var(--bg-surface-elevated)', padding: '1px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>
-            MVP
+    <header
+      style={{
+        height: '36px',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border-subtle)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 10px',
+        gap: '10px',
+        flexShrink: 0,
+        WebkitAppRegion: 'drag',
+      } as React.CSSProperties}
+    >
+      {/* Left: Brand, Workspace, Mode */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 600 }}>
+          <AthenaMark size={18} />
+          <span style={{ fontSize: '12px', color: 'var(--text-bright)', letterSpacing: '0.2px' }}>
+            Athena<span style={{ color: 'var(--accent-cyan)' }}>.IDE</span>
           </span>
         </div>
 
-        <div style={{ height: '16px', width: '1px', background: 'var(--border-subtle)' }} />
-
-        {/* Workspace selector button */}
         <button
+          type="button"
           onClick={onSelectWorkspace}
-          title={currentWorkspace || 'Click to choose workspace folder'}
+          title={currentWorkspace || 'Open workspace folder'}
           style={{
-            background: 'var(--bg-surface-elevated)',
-            padding: '4px 8px',
-            fontSize: '12px',
+            padding: '2px 8px',
+            fontSize: '11px',
             color: currentWorkspace ? 'var(--text-primary)' : 'var(--text-muted)',
+            background: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
           }}
         >
-          <FolderOpen size={14} />
-          <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <FolderOpen size={12} />
+          <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {projectName}
           </span>
         </button>
-      </div>
 
-      {/* Center: Mode Switcher */}
-      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-app)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <button
-          onClick={() => onToggleMode('beginner')}
+        <div
           style={{
-            padding: '3px 10px',
-            fontSize: '11px',
-            fontWeight: 500,
-            background: settings.mode === 'beginner' ? 'var(--accent-primary)' : 'transparent',
-            color: settings.mode === 'beginner' ? '#ffffff' : 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            background: 'var(--bg-app)',
+            padding: '2px',
             borderRadius: '4px',
+            border: '1px solid var(--border-subtle)',
           }}
         >
-          <Laptop size={12} />
-          Beginner Mode
-        </button>
-        <button
-          onClick={() => onToggleMode('developer')}
-          style={{
-            padding: '3px 10px',
-            fontSize: '11px',
-            fontWeight: 500,
-            background: settings.mode === 'developer' ? 'var(--accent-primary)' : 'transparent',
-            color: settings.mode === 'developer' ? '#ffffff' : 'var(--text-secondary)',
-            borderRadius: '4px',
-          }}
-        >
-          <Code2 size={12} />
-          Developer Mode
-        </button>
+          <button
+            type="button"
+            onClick={() => onToggleMode('beginner')}
+            style={{
+              padding: '2px 7px',
+              fontSize: '11px',
+              background: settings.mode === 'beginner' ? 'var(--accent-primary)' : 'transparent',
+              color: settings.mode === 'beginner' ? '#ffffff' : 'var(--text-secondary)',
+            }}
+          >
+            <Laptop size={11} />
+            Beginner
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleMode('developer')}
+            style={{
+              padding: '2px 7px',
+              fontSize: '11px',
+              background: settings.mode === 'developer' ? 'var(--accent-primary)' : 'transparent',
+              color: settings.mode === 'developer' ? '#ffffff' : 'var(--text-secondary)',
+            }}
+          >
+            <Code2 size={11} />
+            Developer
+          </button>
+        </div>
       </div>
 
-      {/* Right: Runtime Status, Offline Badge & Settings */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        {/* Ollama Status Badge */}
+      {/* Center: VS Code Command Center Pill */}
+      <button
+        type="button"
+        onClick={onOpenCommandPalette}
+        title="Command Palette (Ctrl+Shift+P)"
+        style={{
+          flex: '0 1 380px',
+          height: '24px',
+          background: 'var(--bg-surface-elevated)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: '6px',
+          padding: '0 10px',
+          fontSize: '11px',
+          color: 'var(--text-secondary)',
+          justifyContent: 'center',
+          WebkitAppRegion: 'no-drag',
+        } as React.CSSProperties}
+      >
+        <Search size={12} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {currentWorkspace ? projectName : 'Athena.IDE'} — Search commands (Ctrl+Shift+P)
+        </span>
+      </button>
+
+      {/* Right: Layout Toggles, Ollama Badge, Settings */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
+          type="button"
+          className={`workbench-icon-btn ${isSidebarVisible ? 'active' : ''}`}
+          onClick={onToggleSidebar}
+          title="Toggle Primary Side Bar (Ctrl+B)"
+          aria-label="Toggle Primary Side Bar"
+        >
+          <PanelLeft size={15} />
+        </button>
+        <button
+          type="button"
+          className={`workbench-icon-btn ${isBottomPanelVisible ? 'active' : ''}`}
+          onClick={onToggleBottomPanel}
+          title="Toggle Bottom Panel (Ctrl+J)"
+          aria-label="Toggle Bottom Panel"
+        >
+          <PanelBottom size={15} />
+        </button>
+        <button
+          type="button"
+          className={`workbench-icon-btn ${isAgentPanelVisible ? 'active' : ''}`}
+          onClick={onToggleAgentPanel}
+          title="Toggle Athena Agent Side Bar (Ctrl+L)"
+          aria-label="Toggle Agent Side Bar"
+        >
+          <PanelRight size={15} />
+        </button>
+
+        <div style={{ height: '14px', width: '1px', background: 'var(--border-subtle)', margin: '0 4px' }} />
+
+        <button
+          type="button"
           onClick={onOpenOnboarding}
-          title={isOnline ? `Ollama Ready (${ollamaStatus?.models.length || 0} models)` : 'Ollama Offline - Click for setup'}
+          title={isOnline ? `Ollama Ready (${ollamaStatus?.models.length || 0} models)` : 'Ollama Offline — Setup'}
           style={{
             background: 'var(--bg-surface-elevated)',
             border: `1px solid ${isOnline ? 'var(--success)' : 'var(--warning)'}`,
-            padding: '3px 8px',
+            padding: '2px 8px',
             fontSize: '11px',
             color: isOnline ? 'var(--success)' : 'var(--warning)',
           }}
         >
-          {isOnline ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
-          <span>{isOnline ? 'Local AI Ready' : 'Local AI Offline'}</span>
+          {isOnline ? <CheckCircle size={11} /> : <AlertTriangle size={11} />}
+          <span>{isOnline ? 'Local AI Ready' : 'AI Offline'}</span>
         </button>
 
-        {/* Local-First Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          background: 'var(--bg-surface-elevated)',
-          padding: '3px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          color: 'var(--text-muted)',
-          border: '1px solid var(--border-subtle)',
-        }}>
-          <WifiOff size={11} />
-          <span>Local Only</span>
-        </div>
-
-        {/* Settings button */}
         <button
+          type="button"
+          className="workbench-icon-btn"
           onClick={onOpenSettings}
           title="Settings"
-          style={{
-            padding: '6px',
-            background: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-subtle)',
-          }}
+          aria-label="Settings"
         >
-          <Settings size={14} />
+          <Settings size={15} />
         </button>
       </div>
     </header>
