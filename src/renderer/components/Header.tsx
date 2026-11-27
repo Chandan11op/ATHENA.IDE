@@ -44,10 +44,10 @@ export const Header: React.FC<HeaderProps> = ({
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 12px',
-      WebkitAppRegion: 'drag' as any,
-    }}>
+      WebkitAppRegion: 'drag',
+    } as React.CSSProperties}>
       {/* Left: Brand and Workspace */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', WebkitAppRegion: 'no-drag' as any }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, letterSpacing: '0.5px' }}>
           <Sparkles size={16} color="var(--accent-primary)" />
           <span style={{ fontSize: '14px', background: 'linear-gradient(90deg, #60a5fa, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center: Mode Switcher */}
-      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-app)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)', WebkitAppRegion: 'no-drag' as any }}>
+      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-app)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
           onClick={() => onToggleMode('beginner')}
           style={{
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Runtime Status, Offline Badge & Settings */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag' as any }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         {/* Ollama Status Badge */}
         <button
           onClick={onOpenOnboarding}
