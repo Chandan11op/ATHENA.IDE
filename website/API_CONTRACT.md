@@ -81,7 +81,7 @@ interface ReleaseResult<T> {
 
 ## 4. Caching Policy
 
-- **Fresh TTL:** `5 minutes` (`300_000 ms`) in-memory cache per query key.
+- **Fresh TTL:** `5 minutes` (`300_000 ms`) in-memory cache per query key, automatically persisted to `localStorage` in browser environments so page reloads preserve both cached data and ETags.
 - **ETag Revalidation:** Expired entries send `If-None-Match`; GitHub `304 Not Modified` refreshes TTL without consuming unauthenticated rate-limit quota.
 - **Stale-While-Error:** Up to `1 hour` (`3_600_000 ms`) fallback during transient upstream/network/rate-limit errors, explicitly flagged with `meta.isStale = true` and `meta.source = 'cache'`.
 

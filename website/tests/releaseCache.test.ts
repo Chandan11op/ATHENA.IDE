@@ -47,5 +47,32 @@ describe('ReleaseCache', () => {
     cache.invalidate();
     expect(cache.size()).toBe(0);
   });
+
+  it('persists entries and ETags across cache instances when Storage is available', () => {
+    const backing = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        backing.set(k, v);
+      },
+      removeItem: (k: string) => {
+        backing.delete(k);
+      },
+    };
+
+    let clock = 1000;
+    const cache1 = new ReleaseCache({ ttlMs: 500, staleTtlMs: 2000, storage, now: () => clock });
+    cache1.set('k1', { tag: 'v0.1.0' }, '"etag-1"');
+
+    // Simulate page reload with a brand-new ReleaseCache instance using the same storage
+    clock += 200;
+    const cache2 = new ReleaseCache({ ttlMs: 500, staleTtlMs: 2000, storage, now: () => clock });
+    const restored = cache2.getFresh<{ tag: string }>('k1');
+    expect(restored?.value).toEqual({ tag: 'v0.1.0' });
+    expect(restored?.etag).toBe('"etag-1"');
+
+    cache2.invalidate('k1');
+    expect(backing.size).toBe(0);
+  });
 });
 
