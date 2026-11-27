@@ -1,4 +1,4 @@
-# NOVA IDE — Project Blueprint
+# Athena.IDE — Project Blueprint
 
 **Research project:** NOVA IDE (Natural-language Oriented Virtual Assistant for Development)  
 **Purpose:** Build an offline-first, beginner-friendly AI software development environment for the Aavishkar 2026–27 research project.
