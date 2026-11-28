@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { GitHubReleaseProvider } from '../backend/providers/github/githubReleaseProvider';
 import {
   MockReleaseAdapter,
   filterAndPaginateReleases,
@@ -161,5 +162,32 @@ describe('mapBackendReleaseToFrontend', () => {
     expect(mapped.assets[0]?.platform).toBe('windows');
     expect(mapped.compatibility.osRequirements.windows).toBe('Windows 10 / 11 (64-bit)');
     expect(mapped.compatibility.osRequirements.macos).toBeNull();
+  });
+});
+
+describe('GitHubReleaseProvider browser fetch context safety', () => {
+  it('calls globalThis.fetch without binding this to the provider instance', async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedThis: unknown = 'unset';
+    const spyFetch = vi.fn(function (this: unknown) {
+      capturedThis = this;
+      return Promise.resolve(
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    });
+    globalThis.fetch = spyFetch as typeof fetch;
+
+    try {
+      const provider = new GitHubReleaseProvider();
+      const res = await provider.fetchReleasesPage();
+      expect(res.ok).toBe(true);
+      expect(res.data).toEqual([]);
+      expect(capturedThis).not.toBe(provider);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

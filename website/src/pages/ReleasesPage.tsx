@@ -171,14 +171,16 @@ export const ReleasesPage: React.FC = () => {
           {status === 'ready' && data && data.releases.length === 0 && (
             <div className="card" style={{ textAlign: 'center', paddingBlock: 'var(--space-12)' }}>
               <h2 style={{ margin: '0 0 0.5rem', fontSize: 'var(--text-xl)' }}>
-                No matching releases found
+                {hasActiveFilters
+                  ? 'No matching releases found'
+                  : 'ATHENA.IDE is currently being prepared for its first desktop release.'}
               </h2>
               <p style={{ margin: '0 0 1.25rem', color: 'var(--text-secondary)' }}>
                 {hasActiveFilters
                   ? 'Try clearing your search query or adjusting the channel/platform filters.'
-                  : 'No releases have been published yet.'}
+                  : 'Verified release archives will appear here once published on GitHub Releases.'}
               </p>
-              {hasActiveFilters && (
+              {hasActiveFilters ? (
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -186,6 +188,15 @@ export const ReleasesPage: React.FC = () => {
                 >
                   Reset Filters
                 </button>
+              ) : (
+                <a
+                  href="https://github.com/Chandan11op/ATHENA.IDE/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                >
+                  View GitHub Releases
+                </a>
               )}
             </div>
           )}
