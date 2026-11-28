@@ -59,7 +59,7 @@ describe('filterAndPaginateReleases', () => {
       search: 'installers',
     });
     expect(res.total).toBe(1);
-    expect(res.releases[0].tag).toBe('v0.2.0');
+    expect(res.releases[0]?.tag).toBe('v0.2.0');
   });
 
   it('filters by platform compatibility or asset', () => {
@@ -67,7 +67,7 @@ describe('filterAndPaginateReleases', () => {
       platform: 'linux',
     });
     expect(linuxRes.total).toBe(1);
-    expect(linuxRes.releases[0].tag).toBe('v0.2.0');
+    expect(linuxRes.releases[0]?.tag).toBe('v0.2.0');
 
     const macRes = filterAndPaginateReleases(FIXTURE_RELEASES, {
       platform: 'macos',
