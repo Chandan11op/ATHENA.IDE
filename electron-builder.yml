@@ -11,6 +11,14 @@ files:
   - "!scripts/**"
   - "!tests/**"
 win:
+  verifyUpdateCodeSignature: true
+  signExts:
+    - ".dll"
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://timestamp.digicert.com
+    sign: scripts/signing/sign-win-artifact.cjs
   target:
     - target: nsis
       arch:

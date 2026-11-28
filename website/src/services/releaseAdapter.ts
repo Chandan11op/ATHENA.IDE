@@ -79,6 +79,13 @@ export function mapBackendReleaseToFrontend(rel: BackendRelease): Release {
     releaseChannel: rel.isPrerelease ? 'beta' : 'stable',
     isPrerelease: rel.isPrerelease,
     releaseUrl: rel.releaseUrl,
+    signing: rel.signing ?? {
+      status: 'unsigned',
+      publisher: null,
+      issuer: null,
+      timestamped: false,
+      smartAppControlCompatible: false,
+    },
     compatibility: {
       osRequirements: {
         windows: hasPlatform('Windows') ? 'Windows 10 / 11 (64-bit)' : null,

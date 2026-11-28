@@ -21,6 +21,16 @@ export type AssetFormat =
 
 export type ChecksumType = 'sha256' | 'sha512' | 'unknown';
 
+export type ReleaseSignatureStatus = 'signed' | 'unsigned' | 'unknown';
+
+export interface ReleaseSigningInfo {
+  status: ReleaseSignatureStatus;
+  publisher: string | null;
+  issuer: string | null;
+  timestamped: boolean;
+  smartAppControlCompatible: boolean;
+}
+
 export interface ReleaseAsset {
   id: number;
   name: string;
@@ -57,6 +67,7 @@ export interface Release {
   assets: ReleaseAsset[];
   compatibility: ReleaseCompatibility;
   channel: ReleaseChannel;
+  signing?: ReleaseSigningInfo;
 }
 
 export interface AvailableDownloads {

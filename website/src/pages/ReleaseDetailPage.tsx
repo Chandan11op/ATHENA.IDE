@@ -49,7 +49,16 @@ export const ReleaseDetailPage: React.FC = () => {
                 >
                   {release.releaseChannel}
                 </span>
-                <span>Released {formatReleaseDate(release.releaseDate)}</span>
+                {release.signing?.status === 'signed' && release.signing.publisher ? (
+                  <span className="badge badge-success">
+                    Verified Publisher: {release.signing.publisher}
+                  </span>
+                ) : (
+                  <span className="badge badge-warning">
+                    Digital Signature: Unsigned
+                  </span>
+                )}
+                <span>Version {release.version} · Released {formatReleaseDate(release.releaseDate)}</span>
               </div>
               <h1 className="page-title">{release.title}</h1>
               <p className="page-lead">{release.description}</p>
@@ -234,6 +243,7 @@ export const ReleaseDetailPage: React.FC = () => {
                           <th>Platform</th>
                           <th>Architecture</th>
                           <th>File</th>
+                          <th>SHA-256</th>
                           <th>Size</th>
                           <th>Action</th>
                         </tr>
@@ -245,6 +255,15 @@ export const ReleaseDetailPage: React.FC = () => {
                             <td>{asset.architecture}</td>
                             <td>
                               <code>{asset.fileName}</code>
+                            </td>
+                            <td>
+                              {asset.checksumSha256 ? (
+                                <code title={asset.checksumSha256}>
+                                  {asset.checksumSha256.slice(0, 12)}…
+                                </code>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                              )}
                             </td>
                             <td>{formatBytes(asset.fileSizeBytes)}</td>
                             <td>
