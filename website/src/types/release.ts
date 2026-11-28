@@ -1,6 +1,15 @@
 export type ReleaseChannel = 'stable' | 'beta' | 'alpha';
 export type PlatformId = 'windows' | 'macos' | 'linux';
 export type Architecture = 'x64' | 'arm64' | 'universal';
+export type ReleaseSignatureStatus = 'signed' | 'unsigned' | 'unknown';
+
+export interface ReleaseSigningInfo {
+  status: ReleaseSignatureStatus;
+  publisher: string | null;
+  issuer: string | null;
+  timestamped: boolean;
+  smartAppControlCompatible: boolean;
+}
 
 export interface ReleaseAsset {
   id: string;
@@ -42,6 +51,7 @@ export interface Release {
   releaseUrl?: string;
   compatibility: ReleaseCompatibility;
   assets: ReleaseAsset[];
+  signing?: ReleaseSigningInfo;
 }
 
 export interface ReleaseQueryParams {

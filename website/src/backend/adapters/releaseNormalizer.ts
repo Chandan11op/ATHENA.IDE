@@ -6,6 +6,7 @@ import type {
   Release,
   ReleaseAsset,
   ReleaseCompatibility,
+  ReleaseSigningInfo,
 } from '../types/release.js';
 import { classifyAssetName, extractChecksumsFromBody, type ParsedChecksum } from './assetClassifier.js';
 
@@ -98,12 +99,71 @@ function buildCompatibility(assets: ReleaseAsset[]): ReleaseCompatibility {
   };
 }
 
+/**
+ * Conservatively derives release Authenticode status from release notes.
+ * Never claims a release is signed or has a verified publisher unless an explicit
+ * verified-signature declaration and publisher identity appear without unsigned notices.
+ */
+export function extractSigningInfo(body: string): ReleaseSigningInfo {
+  const defaultUnsigned: ReleaseSigningInfo = {
+    status: 'unsigned',
+    publisher: null,
+    issuer: null,
+    timestamped: false,
+    smartAppControlCompatible: false,
+  };
+
+  if (!body) {
+    return defaultUnsigned;
+  }
+
+  const lower = body.toLowerCase();
+  if (
+    /\bunsigned\b/.test(lower) ||
+    /\bnot\s+(yet\s+)?(code[-\s]?)?signed\b/.test(lower) ||
+    /\bdo\s+not\s+(yet\s+)?carry\b.*\bcertificate\b/.test(lower) ||
+    /\bno\s+(valid\s+)?(digital\s+|authenticode\s+)?signature\b/.test(lower) ||
+    /\bdigital signature:\s*unsigned\b/i.test(body)
+  ) {
+    return defaultUnsigned;
+  }
+
+  const verifiedStatusMatch = body.match(
+    /^(?:[-*]\s*)?(?:\*\*)?(?:digital signature|signature status)(?:\*\*)?:\s*(?:verified|signed(?:\s*&\s*verified)?)\s*$/im
+  );
+  const publisherMatch = body.match(/^(?:[-*]\s*)?(?:\*\*)?(?:verified publisher|publisher)(?:\*\*)?:\s*(.+)$/im);
+  const issuerMatch = body.match(/^(?:[-*]\s*)?(?:\*\*)?(?:certificate issuer|issuer)(?:\*\*)?:\s*(.+)$/im);
+  const timestampMatch = body.match(/^(?:[-*]\s*)?(?:\*\*)?timestamped(?:\*\*)?:\s*(yes|true|verified)$/im);
+
+  const rawPublisher = publisherMatch?.[1];
+  const rawIssuer = issuerMatch?.[1];
+  if (!verifiedStatusMatch || !rawPublisher || !timestampMatch) {
+    return defaultUnsigned;
+  }
+
+  const publisher = rawPublisher.replace(/[`*]/g, '').trim();
+  const issuer = rawIssuer ? rawIssuer.replace(/[`*]/g, '').trim() : null;
+  if (!publisher || /^none|unknown|unverified/i.test(publisher)) {
+    return defaultUnsigned;
+  }
+
+  const timestamped = Boolean(timestampMatch);
+  return {
+    status: 'signed',
+    publisher,
+    issuer,
+    timestamped,
+    smartAppControlCompatible: timestamped,
+  };
+}
+
 export function normalizeRelease(raw: RawGitHubReleaseDto): Release {
   const body = raw.body ?? '';
   const checksumMap = extractChecksumsFromBody(body);
   const assets = raw.assets.map((asset) => normalizeAsset(asset, checksumMap));
   const version = normalizeVersionFromTag(raw.tag_name);
   const title = raw.name && raw.name.trim().length > 0 ? raw.name.trim() : raw.tag_name;
+  const signing = extractSigningInfo(body);
 
   return {
     id: raw.id,
@@ -120,6 +180,7 @@ export function normalizeRelease(raw: RawGitHubReleaseDto): Release {
     assets,
     compatibility: buildCompatibility(assets),
     channel: raw.prerelease ? 'prerelease' : 'stable',
+    signing,
   };
 }
 

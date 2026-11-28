@@ -16,7 +16,8 @@
     "pack:win": "npm run build && electron-builder --win",
     "prestart": "npm run build",
     "start": "node electron-run.cjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:win-sign": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/verify-win-signatures.ps1"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

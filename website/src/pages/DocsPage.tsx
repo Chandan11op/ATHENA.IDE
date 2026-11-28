@@ -7,6 +7,7 @@ import './DocsPage.css';
 const DOC_SECTIONS = [
   { id: 'introduction', title: 'Introduction' },
   { id: 'installation', title: 'Installation' },
+  { id: 'code-signing', title: 'Windows Trust & Verification' },
   { id: 'getting-started', title: 'Getting Started' },
   { id: 'local-ai-setup', title: 'Local AI Setup' },
   { id: 'model-installation', title: 'Model Installation' },
@@ -128,6 +129,28 @@ cd ATHENA.IDE
 npm install
 npm run build
 npm start`}</code>
+                </pre>
+              </article>
+
+              <article id="code-signing" className="docs-section">
+                <h2>Windows Trust &amp; Verification</h2>
+                <p>
+                  Windows 11 enforces two separate security mechanisms for downloaded desktop software:
+                  <strong> Smart App Control (SAC)</strong>, which verifies cryptographic Authenticode
+                  signatures across installers, uninstallers, executables, and DLLs, and
+                  <strong> Microsoft Defender SmartScreen</strong>, which tracks per-certificate and
+                  per-binary download reputation over time.
+                </p>
+                <p>
+                  Current <code>v0.2.0</code> pre-built binaries are unsigned, so Smart App Control
+                  may block execution until signed releases are published. We are preparing
+                  open-source code signing (evaluating SignPath Foundation) and never ask users
+                  to weaken Windows security settings. Always verify SHA-256 integrity and
+                  Authenticode status locally with PowerShell:
+                </p>
+                <pre className="code-block">
+                  <code>{`Get-FileHash .\\Athena.IDE-0.2.0-win-x64-setup.exe -Algorithm SHA256
+Get-AuthenticodeSignature .\\Athena.IDE-0.2.0-win-x64-setup.exe`}</code>
                 </pre>
               </article>
 

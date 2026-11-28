@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  Check,
   Clock,
+  Copy,
   Cpu,
   Download,
   ExternalLink,
@@ -37,6 +39,26 @@ const PLATFORMS: Array<{
 export const DownloadPage: React.FC = () => {
   const { status, data: latest, source, isStale, fetchedAt, error, reload } = useLatestRelease();
   const visitorPlatform = detectVisitorPlatform();
+  const [copiedShaId, setCopiedShaId] = useState<string | null>(null);
+
+  const signing = latest?.signing ?? {
+    status: 'unsigned' as const,
+    publisher: null,
+    issuer: null,
+    timestamped: false,
+    smartAppControlCompatible: false,
+  };
+  const hasVerifiedPublisher = signing.status === 'signed' && Boolean(signing.publisher);
+
+  const handleCopySha = async (assetId: string, sha256: string) => {
+    try {
+      await navigator.clipboard.writeText(sha256);
+      setCopiedShaId(assetId);
+      setTimeout(() => setCopiedShaId((prev) => (prev === assetId ? null : prev)), 2000);
+    } catch {
+      // Clipboard API unavailable in restricted contexts; full checksum remains visible inline.
+    }
+  };
 
   const getAssetsForPlatform = (platform: PlatformId): ReleaseAsset[] => {
     if (!latest) return [];
@@ -158,11 +180,33 @@ export const DownloadPage: React.FC = () => {
                       >
                         {latest.releaseChannel}
                       </span>
-                      <span>Released {formatReleaseDate(latest.releaseDate)}</span>
+                      {hasVerifiedPublisher ? (
+                        <span className="badge badge-success">
+                          Verified Publisher: {signing.publisher}
+                        </span>
+                      ) : (
+                        <span className="badge badge-warning">
+                          Digital Signature: Unsigned Executable
+                        </span>
+                      )}
+                      <span>Version {latest.version} · Released {formatReleaseDate(latest.releaseDate)}</span>
                     </div>
-                    <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>
+                    <h2 style={{ margin: '0 0 0.35rem', fontSize: 'var(--text-xl)' }}>
                       {latest.title}
                     </h2>
+                    <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                      {hasVerifiedPublisher ? (
+                        <>
+                          Signed with SHA-256 Authenticode
+                          {signing.issuer ? ` (${signing.issuer})` : ''}
+                          {signing.timestamped ? ' · Trusted Timestamp' : ''}
+                        </>
+                      ) : (
+                        <>
+                          Publisher verification is not yet active on {latest.tag} binaries. Windows Smart App Control may block unsigned executables and SmartScreen may warn; verify SHA-256 checksums below before launching.
+                        </>
+                      )}
+                    </p>
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -294,10 +338,29 @@ export const DownloadPage: React.FC = () => {
                                     wordBreak: 'break-all',
                                   }}
                                 >
-                                  {asset.fileName}
+                                  <div>{asset.fileName}</div>
                                   {asset.checksumSha256 && (
-                                    <div title={asset.checksumSha256}>
-                                      SHA-256: {asset.checksumSha256.slice(0, 16)}…
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '0.5rem',
+                                        marginTop: '0.2rem',
+                                      }}
+                                    >
+                                      <span title={asset.checksumSha256}>
+                                        SHA-256: {asset.checksumSha256.slice(0, 16)}…{asset.checksumSha256.slice(-8)}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        style={{ padding: '0.15rem 0.45rem', fontSize: '11px' }}
+                                        onClick={() => handleCopySha(asset.id, asset.checksumSha256!)}
+                                      >
+                                        {copiedShaId === asset.id ? <Check size={12} /> : <Copy size={12} />}
+                                        {copiedShaId === asset.id ? 'Copied' : 'Copy SHA-256'}
+                                      </button>
                                     </div>
                                   )}
                                 </div>
@@ -369,11 +432,11 @@ export const DownloadPage: React.FC = () => {
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <HardDrive size={18} color="var(--accent-cyan)" aria-hidden="true" />
-                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>System Requirements &amp; Installation</h2>
+                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Installation Instructions &amp; Requirements</h2>
               </div>
               <ul
                 style={{
-                  margin: 0,
+                  margin: '0 0 0.75rem',
                   paddingLeft: '1.15rem',
                   color: 'var(--text-secondary)',
                   fontSize: 'var(--text-sm)',
@@ -382,11 +445,19 @@ export const DownloadPage: React.FC = () => {
                   gap: '0.45rem',
                 }}
               >
-                <li>Windows 10 / 11 (64-bit) primary desktop target</li>
-                <li>8 GB RAM minimum (16 GB recommended for larger local coding models)</li>
-                <li>Node.js LTS &amp; Git (for project workflows and local Source Control)</li>
-                <li>Verify downloaded executables against published SHA-256 checksums</li>
+                <li><strong>OS Target:</strong> Windows 10 / 11 (64-bit) · 8 GB RAM min (16 GB recommended)</li>
+                <li><strong>Step 1:</strong> Download the NSIS Installer (<code>setup.exe</code>) or Portable binary (<code>portable.exe</code>).</li>
+                <li><strong>Step 2:</strong> Verify file integrity with SHA-256 before running:</li>
               </ul>
+              <pre className="code-block" style={{ marginBottom: '0.65rem' }}>
+                <code>{`Get-FileHash .\\${
+                  getAssetsForPlatform('windows')[0]?.fileName ??
+                  `Athena.IDE-${latest?.version ?? '0.2.0'}-win-x64-setup.exe`
+                } -Algorithm SHA256`}</code>
+              </pre>
+              <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                <strong>Step 3:</strong> Complete the installer wizard, launch ATHENA.IDE, and install Node.js LTS, Git, and Ollama for local AI inference.
+              </p>
             </div>
 
             <div className="card">
@@ -412,7 +483,7 @@ export const DownloadPage: React.FC = () => {
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <AlertTriangle size={18} color="var(--status-warning)" aria-hidden="true" />
-                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Known Limitations</h2>
+                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Digital Signature &amp; Known Limitations</h2>
               </div>
               <ul
                 style={{
@@ -425,10 +496,25 @@ export const DownloadPage: React.FC = () => {
                   gap: '0.45rem',
                 }}
               >
-                <li>Early development release — Windows binaries are not yet code-signed (Windows SmartScreen may prompt).</li>
+                <li>
+                  {hasVerifiedPublisher ? (
+                    <>
+                      <strong>Verified Publisher:</strong> {signing.publisher} (SHA-256 Authenticode signed; SmartScreen reputation builds separately over downloads).
+                    </>
+                  ) : (
+                    <>
+                      <strong>Unsigned Windows Build:</strong> Current executables are not code-signed yet. Windows 11 systems with Smart App Control enabled may block unverified publishers, and SmartScreen may show an Unknown Publisher prompt. Code signing support (evaluating SignPath Foundation for open-source releases) is in preparation; we do not recommend disabling Windows security features.
+                    </>
+                  )}
+                </li>
                 <li>macOS and Linux pre-built packages are not yet published.</li>
                 <li>Offline AI requires local Ollama installed at <code>127.0.0.1:11434</code>.</li>
               </ul>
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                <Link to="/docs#code-signing" className="btn btn-secondary btn-sm">
+                  Windows Trust &amp; Verification Guide
+                </Link>
+              </div>
             </div>
 
             <div className="card">

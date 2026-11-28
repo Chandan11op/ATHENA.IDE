@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   extractDescriptionFromBody,
+  extractSigningInfo,
   normalizeRelease,
   normalizeVersionFromTag,
 } from '../src/backend/adapters/releaseNormalizer.js';
@@ -67,6 +68,44 @@ describe('releaseNormalizer', () => {
       supportedPlatforms: ['Windows'],
       supportedArchitectures: ['x64'],
       hasInstallers: true,
+    });
+    expect(normalized.signing).toEqual({
+      status: 'unsigned',
+      publisher: null,
+      issuer: null,
+      timestamped: false,
+      smartAppControlCompatible: false,
+    });
+  });
+
+  it('never marks an unsigned release as Verified Publisher even if notes mention certificates', () => {
+    const unsignedNotes = [
+      'Digital Signature: Verified',
+      'Publisher: SignPath Foundation',
+      '- **Unsigned Executables:** Binaries do not yet carry an Authenticode certificate.',
+    ].join('\n');
+
+    expect(extractSigningInfo(unsignedNotes)).toEqual({
+      status: 'unsigned',
+      publisher: null,
+      issuer: null,
+      timestamped: false,
+      smartAppControlCompatible: false,
+    });
+
+    const verifiedNotes = [
+      '- Digital Signature: Verified',
+      '- Verified Publisher: SignPath Foundation',
+      '- Certificate Issuer: DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1',
+      '- Timestamped: Yes',
+    ].join('\n');
+
+    expect(extractSigningInfo(verifiedNotes)).toEqual({
+      status: 'signed',
+      publisher: 'SignPath Foundation',
+      issuer: 'DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1',
+      timestamped: true,
+      smartAppControlCompatible: true,
     });
   });
 });
