@@ -70,7 +70,7 @@ jobs:
           }
 
       - name: Build & Package Windows NSIS + Portable
-        run: npm run pack:win
+        run: npm run pack:win -- --publish never
 
       - name: Generate & verify SHA-256 checksums
         shell: pwsh
