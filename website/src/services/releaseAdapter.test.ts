@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   MockReleaseAdapter,
   filterAndPaginateReleases,
+  mapBackendReleaseToFrontend,
 } from './releaseAdapter';
+import type { Release as BackendRelease } from '../backend/types/release';
 import { Release } from '../types/release';
 import { formatBytes, getPlatformLabel } from '../utils/format';
 
@@ -112,5 +114,52 @@ describe('format utilities', () => {
     expect(formatBytes(undefined)).toBe('Size unavailable');
     expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
     expect(getPlatformLabel('macos')).toBe('macOS');
+  });
+});
+
+describe('mapBackendReleaseToFrontend', () => {
+  it('maps GitHub backend release DTOs cleanly into frontend release shape', () => {
+    const backendRel: BackendRelease = {
+      id: 101,
+      tagName: 'v0.2.0',
+      version: '0.2.0',
+      title: 'Athena.IDE v0.2.0',
+      description: 'Windows desktop installer',
+      body: 'Release notes',
+      publishedAt: '2026-11-28T00:00:00Z',
+      updatedAt: null,
+      isPrerelease: false,
+      isDraft: false,
+      releaseUrl: 'https://github.com/Chandan11op/ATHENA.IDE/releases/tag/v0.2.0',
+      channel: 'stable',
+      compatibility: {
+        supportedPlatforms: ['Windows'],
+        supportedArchitectures: ['x64'],
+        hasInstallers: true,
+      },
+      assets: [
+        {
+          id: 55,
+          name: 'Athena.IDE-0.2.0-win-x64-nsis.exe',
+          platform: 'Windows',
+          architecture: 'x64',
+          format: 'exe',
+          isInstaller: true,
+          downloadUrl: 'https://github.com/Chandan11op/ATHENA.IDE/releases/download/v0.2.0/Athena.IDE-0.2.0-win-x64-nsis.exe',
+          sizeBytes: 120_000_000,
+          contentType: 'application/octet-stream',
+          checksum: null,
+          checksumType: null,
+          isAvailable: true,
+        },
+      ],
+    };
+
+    const mapped = mapBackendReleaseToFrontend(backendRel);
+    expect(mapped.tag).toBe('v0.2.0');
+    expect(mapped.assets).toHaveLength(1);
+    expect(mapped.assets[0]?.platform).toBe('windows');
+    expect(mapped.compatibility.osRequirements.windows).toBe('Windows 10 / 11 (64-bit)');
+    expect(mapped.compatibility.osRequirements.macos).toBeNull();
   });
 });

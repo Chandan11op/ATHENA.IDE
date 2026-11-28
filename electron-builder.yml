@@ -1,0 +1,37 @@
+appId: dev.athenaide.desktop
+productName: Athena.IDE
+copyright: Athena.IDE Contributors
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+  - "!website/**"
+  - "!docs/**"
+  - "!scripts/**"
+  - "!tests/**"
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: "Athena.IDE-${version}-win-${arch}-setup.${ext}"
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+portable:
+  artifactName: "Athena.IDE-${version}-win-${arch}-portable.${ext}"
+mac:
+  target:
+    - dmg
+  artifactName: "Athena.IDE-${version}-mac-${arch}.${ext}"
+linux:
+  target:
+    - AppImage
+    - deb
+  artifactName: "Athena.IDE-${version}-linux-${arch}.${ext}"

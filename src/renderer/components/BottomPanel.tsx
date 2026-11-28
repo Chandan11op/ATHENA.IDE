@@ -1,52 +1,72 @@
 import React from 'react';
 import {
-  WifiOff,
-  GitBranch,
   AlertCircle,
   AlertTriangle,
-  Activity,
   Bot,
-  Terminal,
-  HardDrive,
   Cpu,
+  GitBranch,
+  HardDrive,
+  Terminal,
+  WifiOff,
 } from 'lucide-react';
-import { SystemMetrics, OllamaStatus } from '@common/types.js';
+import { GitStatusSummary, OllamaStatus, SystemMetrics } from '@common/types.js';
+import { EditorTab } from '../types/workbench.js';
 
 interface BottomPanelProps {
   systemMetrics: SystemMetrics | null;
   ollamaStatus: OllamaStatus | null;
-  activeAgentName?: string;
-  isBottomPanelVisible?: boolean;
-  onToggleBottomPanel?: () => void;
+  selectedModel: string;
+  gitStatus: GitStatusSummary | null;
+  activeTab?: EditorTab;
+  cursorLine: number;
+  cursorColumn: number;
+  errorCount: number;
+  warningCount: number;
+  isBottomPanelVisible: boolean;
+  onToggleBottomPanel: () => void;
+  onOpenProblems: () => void;
+  onOpenGit: () => void;
+  onOpenAiModels: () => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
   systemMetrics,
   ollamaStatus,
-  activeAgentName = 'Ollama Coder',
-  isBottomPanelVisible = false,
+  selectedModel,
+  gitStatus,
+  activeTab,
+  cursorLine,
+  cursorColumn,
+  errorCount,
+  warningCount,
+  isBottomPanelVisible,
   onToggleBottomPanel,
+  onOpenProblems,
+  onOpenGit,
+  onOpenAiModels,
 }) => {
-  const freeRamMb = systemMetrics ? Math.round(systemMetrics.freeMemoryBytes / (1024 * 1024)) : 0;
-  const totalRamMb = systemMetrics ? Math.round(systemMetrics.totalMemoryBytes / (1024 * 1024)) : 0;
+  const freeRamGb = systemMetrics
+    ? (systemMetrics.freeMemoryBytes / (1024 * 1024 * 1024)).toFixed(1)
+    : '0';
+  const totalRamGb = systemMetrics
+    ? (systemMetrics.totalMemoryBytes / (1024 * 1024 * 1024)).toFixed(1)
+    : '0';
 
   return (
     <footer
       style={{
-        height: '22px',
+        height: 22,
         background: 'var(--statusbar-bg)',
-        borderTop: '1px solid var(--border-subtle)',
+        color: 'var(--statusbar-fg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingRight: '10px',
-        fontSize: '11px',
-        color: 'var(--text-secondary)',
+        paddingRight: 10,
+        fontSize: 11,
         flexShrink: 0,
       }}
     >
-      {/* Left: VS Code remote/local pill + branch + problems + active agent */}
-      <div style={{ display: 'flex', alignItems: 'center', height: '100%', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: '100%', gap: 10 }}>
         <div
           style={{
             height: '100%',
@@ -55,81 +75,67 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             padding: '0 8px',
             display: 'flex',
             alignItems: 'center',
-            gap: '5px',
-            fontWeight: 500,
+            gap: 5,
+            fontWeight: 600,
           }}
-          title="100% Local-First Offline Mode"
+          title="Offline-First Local Execution"
         >
           <WifiOff size={11} />
           <span>Local Only</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Git branch (Placeholder)">
+        <button type="button" onClick={onOpenGit} title="Source Control" style={{ padding: '0 4px', height: '100%', fontSize: 11 }}>
           <GitBranch size={11} />
-          <span>main</span>
-        </div>
+          <span>{gitStatus?.branch ?? 'no-git'}</span>
+        </button>
+
+        <button type="button" onClick={onOpenProblems} title="Problems" style={{ padding: '0 4px', height: '100%', fontSize: 11, gap: 6 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <AlertCircle size={11} /> {errorCount}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <AlertTriangle size={11} /> {warningCount}
+          </span>
+        </button>
+
+        <button type="button" onClick={onOpenAiModels} title="Active Ollama Model" style={{ padding: '0 4px', height: '100%', fontSize: 11 }}>
+          <Bot size={11} />
+          <span>
+            {ollamaStatus?.isAvailable
+              ? selectedModel || ollamaStatus.models[0]?.name || 'Ollama Online (No model)'
+              : 'Ollama Offline'}
+          </span>
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {activeTab?.kind === 'code' && (
+          <>
+            <span>Ln {cursorLine}, Col {cursorColumn}</span>
+            <span>{activeTab.language ?? 'plaintext'}</span>
+          </>
+        )}
 
         <button
           type="button"
           onClick={onToggleBottomPanel}
-          title="Toggle Problems / Terminal Panel (Ctrl+J)"
-          style={{ padding: '0 4px', height: '100%', fontSize: '11px', gap: '6px' }}
+          style={{ padding: '0 4px', height: '100%', fontSize: 11, opacity: isBottomPanelVisible ? 1 : 0.85 }}
+          title="Toggle Terminal Panel (Ctrl+J)"
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-            <AlertCircle size={11} /> 0
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-            <AlertTriangle size={11} /> 0
-          </span>
+          <Terminal size={11} />
+          <span>Terminal</span>
         </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Activity size={11} color="var(--success)" />
-          <span>Athena Engine: Ready</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-cyan)' }}>
-          <Bot size={11} />
-          <span>{activeAgentName} (Placeholder)</span>
-        </div>
-      </div>
-
-      {/* Right: Terminal toggle, Ollama latency, Hardware diagnostics, Encoding */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {onToggleBottomPanel && (
-          <button
-            type="button"
-            onClick={onToggleBottomPanel}
-            style={{
-              padding: '0 4px',
-              height: '100%',
-              fontSize: '11px',
-              color: isBottomPanelVisible ? 'var(--text-bright)' : 'var(--text-secondary)',
-            }}
-            title="Toggle Bottom Panel (Ctrl+J)"
-          >
-            <Terminal size={11} />
-            <span>Panel</span>
-          </button>
-        )}
-
-        {ollamaStatus && ollamaStatus.latencyMs !== undefined && (
-          <span>Ping: {ollamaStatus.latencyMs}ms</span>
-        )}
 
         {systemMetrics && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Available System RAM">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Free / Total System RAM">
               <HardDrive size={11} />
-              <span>{freeRamMb} / {totalRamMb} MB</span>
-            </div>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-              title={`${systemMetrics.cpuModel} (${systemMetrics.cpuCores} cores)`}
-            >
+              {freeRamGb}/{totalRamGb} GB
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title={systemMetrics.cpuModel}>
               <Cpu size={11} />
-              <span>{systemMetrics.cpuCores} Cores</span>
-            </div>
+              {systemMetrics.cpuCores}c
+            </span>
           </>
         )}
 

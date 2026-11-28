@@ -1,12 +1,12 @@
 import React from 'react';
-import { X, CheckCircle, AlertTriangle, ExternalLink, RefreshCw, Download } from 'lucide-react';
-import { OllamaStatus, NovaSettings } from '@common/types.js';
+import { X, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { OllamaStatus, AthenaSettings } from '@common/types.js';
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onClose: () => void;
   ollamaStatus: OllamaStatus | null;
-  settings: NovaSettings;
+  settings: AthenaSettings;
   onRefresh: () => void;
 }
 
@@ -22,141 +22,93 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const isAvailable = ollamaStatus?.isAvailable ?? false;
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0, 0, 0, 0.7)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(3px)',
-    }}>
-      <div style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border-strong)',
-        borderRadius: '10px',
-        width: '560px',
-        maxWidth: '95vw',
-        padding: '24px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Local AI Prerequisite Check</h2>
-          <button onClick={onClose} style={{ padding: '4px', color: 'var(--text-muted)' }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+    >
+      <div
+        role="dialog"
+        aria-label="Local AI Prerequisite Check"
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 6,
+          width: 540,
+          maxWidth: '95vw',
+          padding: 20,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600 }}>Local AI Prerequisite Check</h2>
+          <button type="button" onClick={onClose} style={{ padding: 4, color: 'var(--text-muted)' }}>
             <X size={16} />
           </button>
         </div>
 
-        {/* Status Alert */}
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          background: isAvailable ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-          border: `1px solid ${isAvailable ? 'var(--success)' : 'var(--warning)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '20px',
-        }}>
-          {isAvailable ? <CheckCircle size={22} color="var(--success)" /> : <AlertTriangle size={22} color="var(--warning)" />}
+        <div
+          style={{
+            padding: '10px 14px',
+            borderRadius: 4,
+            background: isAvailable ? 'rgba(78, 201, 176, 0.1)' : 'rgba(204, 167, 0, 0.1)',
+            border: `1px solid ${isAvailable ? 'var(--success)' : 'var(--warning)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          {isAvailable ? <CheckCircle size={20} color="var(--success)" /> : <AlertTriangle size={20} color="var(--warning)" />}
           <div>
             <p style={{ fontWeight: 600, color: isAvailable ? 'var(--success)' : 'var(--warning)' }}>
               {isAvailable ? 'Ollama Detected and Connected' : 'Ollama Offline or Not Reachable'}
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               Endpoint: <code>{settings.ollamaEndpoint}</code>
               {ollamaStatus?.errorMessage && ` — ${ollamaStatus.errorMessage}`}
             </p>
           </div>
         </div>
 
-        {/* Guided Setup Steps */}
-        {!isAvailable && (
-          <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Manual Setup Instructions (100% Offline Capable After Setup)
-            </h3>
-            
-            <div style={{
-              background: 'var(--bg-app)',
-              padding: '12px',
-              borderRadius: '6px',
-              border: '1px solid var(--border-subtle)',
-              fontSize: '12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-            }}>
+        {!isAvailable ? (
+          <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+            <p style={{ fontWeight: 600 }}>Manual Setup (Offline-Capable After Setup)</p>
+            <div style={{ background: 'var(--bg-app)', padding: 10, borderRadius: 4, border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div>
-                <strong>Step 1: Install Ollama</strong>
-                <p style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Download and install Ollama for Windows from <code>https://ollama.com/download</code>.
-                </p>
+                <strong>1. Install Ollama:</strong> Download from <code>https://ollama.com/</code>
               </div>
-
               <div>
-                <strong>Step 2: Pull a lightweight coding model</strong>
-                <p style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Open PowerShell and run one of the recommended models:
-                </p>
-                <code style={{
-                  display: 'block',
-                  background: 'var(--bg-surface-elevated)',
-                  padding: '6px 10px',
-                  borderRadius: '4px',
-                  marginTop: '4px',
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent-primary)',
-                }}>
-                  ollama pull qwen2.5-coder:1.5b
+                <strong>2. Pull a lightweight coding model:</strong>
+                <code style={{ display: 'block', background: 'var(--bg-surface-elevated)', padding: '5px 8px', marginTop: 4, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                  ollama run qwen2.5-coder:1.5b
                 </code>
               </div>
-
               <div>
-                <strong>Step 3: Verify & Refresh</strong>
-                <p style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Make sure Ollama is running in your taskbar, then click Refresh below.
-                </p>
+                <strong>3. Click Re-check Ollama below.</strong>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Models list if available */}
-        {isAvailable && (
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
               Installed Local Models ({ollamaStatus?.models.length || 0}):
             </h3>
             {ollamaStatus?.models.length === 0 ? (
-              <p style={{ fontSize: '12px', color: 'var(--warning)' }}>
-                No models installed yet. Run <code>ollama pull qwen2.5-coder:1.5b</code> in your terminal.
+              <p style={{ fontSize: 12, color: 'var(--warning)' }}>
+                No models installed yet. Run <code>ollama pull qwen2.5-coder:1.5b</code>.
               </p>
             ) : (
-              <ul style={{
-                maxHeight: '140px',
-                overflowY: 'auto',
-                listStyle: 'none',
-                background: 'var(--bg-app)',
-                borderRadius: '6px',
-                padding: '8px',
-                border: '1px solid var(--border-subtle)',
-              }}>
+              <ul style={{ maxHeight: 140, overflowY: 'auto', listStyle: 'none', background: 'var(--bg-app)', borderRadius: 4, padding: 6, border: '1px solid var(--border-subtle)' }}>
                 {ollamaStatus?.models.map((m) => (
-                  <li key={m.name} style={{
-                    padding: '6px 8px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '12px',
-                  }}>
-                    <span style={{ fontWeight: 500 }}>{m.name}</span>
-                    <span style={{ color: 'var(--text-muted)' }}>
-                      {(m.size / (1024 * 1024 * 1024)).toFixed(1)} GB
-                    </span>
+                  <li key={m.name} style={{ padding: '4px 6px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span>{m.name}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{(m.size / (1024 * 1024 * 1024)).toFixed(1)} GB</span>
                   </li>
                 ))}
               </ul>
@@ -164,30 +116,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
-        {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button
-            onClick={onRefresh}
-            style={{
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-strong)',
-              padding: '6px 14px',
-              fontSize: '12px',
-            }}
-          >
-            <RefreshCw size={13} />
-            Re-check Ollama
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="athena-btn-secondary" onClick={onRefresh}>
+            <RefreshCw size={13} /> Re-check Ollama
           </button>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'var(--accent-primary)',
-              color: '#ffffff',
-              padding: '6px 16px',
-              fontSize: '12px',
-              fontWeight: 500,
-            }}
-          >
+          <button type="button" className="athena-btn-primary" onClick={onClose}>
             Got it
           </button>
         </div>
