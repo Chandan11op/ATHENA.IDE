@@ -97,19 +97,29 @@ export const App: React.FC = () => {
   const loadInitialData = useCallback(async () => {
     if (typeof window === 'undefined' || !window.athenaApi) return;
     try {
-      const [loadedSettings, metrics, extList] = await Promise.all([
+      const [loadedSettings, metrics, extList, setupState] = await Promise.all([
         window.athenaApi.getSettings(),
         window.athenaApi.getSystemMetrics(),
         window.athenaApi.listExtensions(),
+        window.athenaApi.getSetupState(),
       ]);
       setSettings(loadedSettings);
       setCurrentWorkspace(loadedSettings.workspacePath);
       setSystemMetrics(metrics);
       setExtensions(extList);
 
+      const env = await window.athenaApi.inspectOllamaEnvironment(loadedSettings.ollamaEndpoint);
       const status = await window.athenaApi.checkOllamaStatus(loadedSettings.ollamaEndpoint);
       setOllamaStatus(status);
-      if (!status.isAvailable) {
+
+      // Auto-select first installed model if user had none configured
+      if (!loadedSettings.selectedModel && status.models.length > 0 && status.models[0]) {
+        const firstModel = status.models[0].name;
+        await window.athenaApi.setSetting('selectedModel', firstModel);
+        setSettings((prev) => ({ ...prev, selectedModel: firstModel }));
+      }
+
+      if (!setupState.skippedAiSetup && (!env.apiReachable || status.models.length === 0)) {
         setIsOnboardingOpen(true);
       }
 
@@ -704,7 +714,8 @@ export const App: React.FC = () => {
         onClose={() => setIsOnboardingOpen(false)}
         ollamaStatus={ollamaStatus}
         settings={settings}
-        onRefresh={() => void refreshOllama()}
+        onRefresh={() => refreshOllama()}
+        onSelectModel={(m) => handleSaveSetting('selectedModel', m)}
       />
     </div>
   );

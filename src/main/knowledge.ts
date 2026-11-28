@@ -25,6 +25,59 @@ const INDEXABLE_EXTS = new Set([
   '.json', '.md', '.txt', '.py', '.yml', '.yaml',
 ]);
 
+const INITIAL_KNOWLEDGE_DOCS: Array<{
+  id: string;
+  fileName: string;
+  subdir: 'docs' | 'snippets';
+  title: string;
+  content: string;
+}> = [
+  {
+    id: 'pack-html-css',
+    fileName: 'html-css-essentials.md',
+    subdir: 'docs',
+    title: 'HTML5 & CSS3 Offline Reference',
+    content: `# HTML5 & CSS3 Essentials (Athena.IDE Reference)
+- Semantic landmarks: <header>, <nav>, <main>, <section>, <article>, <footer>.
+- Responsive layouts: CSS Grid (grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))) and Flexbox.
+- Accessible forms: pair <label for="id"> with input id, preserve :focus-visible outlines.
+`,
+  },
+  {
+    id: 'pack-js-ts',
+    fileName: 'javascript-typescript-basics.md',
+    subdir: 'docs',
+    title: 'JavaScript & TypeScript Essentials',
+    content: `# JavaScript & TypeScript Offline Reference
+- Prefer strict TypeScript interfaces and explicit error handling with try/catch.
+- Use async/await with Promise.all for independent asynchronous operations.
+- Validate untrusted paths and inputs before filesystem or network operations.
+`,
+  },
+  {
+    id: 'pack-react-vite',
+    fileName: 'react-vite-offline-guide.md',
+    subdir: 'snippets',
+    title: 'React & Vite Offline Workflow',
+    content: `# React + Vite Local Workflow
+- Manage component state with useState, derived state with useMemo, and cleanup in useEffect.
+- Local dev server: run \`npm run dev\` after inspecting package.json scripts.
+- Static HTML/CSS/JS workspaces can be previewed directly on 127.0.0.1 without Node dependencies.
+`,
+  },
+  {
+    id: 'pack-ollama',
+    fileName: 'ollama-local-models.md',
+    subdir: 'docs',
+    title: 'Ollama Local Loopback API Reference',
+    content: `# Ollama Local Runtime Reference
+- Default loopback endpoint: http://127.0.0.1:11434
+- Endpoints: GET /api/tags (list models), POST /api/chat (streaming chat), POST /api/generate (completions), POST /api/pull (download model).
+- Lightweight coding model baseline: qwen2.5-coder:1.5b (~1.0 GB, 4-8 GB RAM systems).
+`,
+  },
+];
+
 export class KnowledgeService {
   private readonly manifestPath: string;
   private manifest: KnowledgeManifest;
@@ -53,6 +106,74 @@ export class KnowledgeService {
 
   public listSources(): KnowledgeSource[] {
     return [...this.manifest.sources];
+  }
+
+  public seedInitialPack(): { ok: boolean; added: KnowledgeSource[]; error?: string } {
+    try {
+      const added: KnowledgeSource[] = [];
+      for (const doc of INITIAL_KNOWLEDGE_DOCS) {
+        const subdir = doc.subdir === 'docs' ? 'knowledge/docs' : 'knowledge/snippets';
+        const targetPath = path.join(this.dataManager.getSubdir(subdir), doc.fileName);
+        if (!fs.existsSync(targetPath)) {
+          fs.writeFileSync(targetPath, doc.content, 'utf8');
+        }
+
+        const alreadyIndexed = this.manifest.sources.some((s) => s.id === doc.id);
+        if (!alreadyIndexed) {
+          const pieces = this.chunkText(doc.content);
+          for (const piece of pieces) {
+            this.manifest.chunks.push({
+              sourceId: doc.id,
+              sourceLabel: doc.title,
+              filePath: doc.fileName,
+              text: piece,
+            });
+          }
+          const src: KnowledgeSource = {
+            id: doc.id,
+            label: doc.title,
+            sourcePath: targetPath,
+            kind: 'file',
+            addedAt: new Date().toISOString(),
+            chunkCount: pieces.length,
+            attribution: 'Athena.IDE Built-in Open Reference Pack (CC0 / Project Authored)',
+          };
+          this.manifest.sources.push(src);
+          added.push(src);
+        }
+      }
+
+      const packManifestPath = path.join(
+        this.dataManager.getSubdir('knowledge/manifests'),
+        'initial-pack.json'
+      );
+      fs.writeFileSync(
+        packManifestPath,
+        JSON.stringify(
+          {
+            schemaVersion: 1,
+            license: 'CC0-1.0 / MIT (Athena.IDE Project Authored)',
+            items: INITIAL_KNOWLEDGE_DOCS.map((d) => ({
+              id: d.id,
+              fileName: d.fileName,
+              title: d.title,
+            })),
+          },
+          null,
+          2
+        ),
+        'utf8'
+      );
+
+      this.saveManifest();
+      return { ok: true, added };
+    } catch (err) {
+      return {
+        ok: false,
+        added: [],
+        error: err instanceof Error ? err.message : 'Failed to seed knowledge pack',
+      };
+    }
   }
 
   private chunkText(text: string, chunkSize = 700): string[] {
@@ -147,7 +268,7 @@ export class KnowledgeService {
   }
 
   public addReferenceFiles(filePaths: string[]): { ok: boolean; added: KnowledgeSource[]; error?: string } {
-    const knowledgeDir = this.dataManager.getSubdir('knowledge');
+    const knowledgeDir = this.dataManager.getSubdir('knowledge/resources');
     const added: KnowledgeSource[] = [];
 
     for (const srcPath of filePaths) {

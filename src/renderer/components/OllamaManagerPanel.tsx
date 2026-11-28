@@ -202,6 +202,19 @@ export const OllamaManagerPanel: React.FC<OllamaManagerPanelProps> = ({
             className="athena-btn-secondary"
             style={{ fontSize: 11 }}
             onClick={async () => {
+              const res = await window.athenaApi.seedInitialKnowledgePack();
+              setNotice(res.ok ? `Seeded ${res.added.length} built-in reference doc(s).` : res.error ?? 'Failed');
+              await loadKnowledge();
+            }}
+          >
+            <BookOpen size={12} />
+            Load Starter Docs
+          </button>
+          <button
+            type="button"
+            className="athena-btn-secondary"
+            style={{ fontSize: 11 }}
+            onClick={async () => {
               const res = await window.athenaApi.indexWorkspaceKnowledge();
               setNotice(res.ok ? `Indexed ${res.source?.chunkCount ?? 0} chunks.` : res.error ?? 'Failed');
               await loadKnowledge();

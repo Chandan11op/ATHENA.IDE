@@ -12,6 +12,9 @@ export const IPC_CHANNELS = {
   SETTINGS_GET_ALL: 'athena:settings:get-all',
   SETTINGS_SET_VALUE: 'athena:settings:set-value',
   DATA_GET_STATS: 'athena:data:get-stats',
+  DATA_INIT_VERIFY: 'athena:data:init-verify',
+  DATA_GET_SETUP_STATE: 'athena:data:get-setup-state',
+  DATA_UPDATE_SETUP_STATE: 'athena:data:update-setup-state',
   DATA_CLEAR_CACHE: 'athena:data:clear-cache',
   DATA_OPEN_DIRECTORY: 'athena:data:open-directory',
   DATA_LIST_CONVERSATIONS: 'athena:data:list-conversations',
@@ -19,6 +22,8 @@ export const IPC_CHANNELS = {
   DATA_DELETE_CONVERSATION: 'athena:data:delete-conversation',
   DATA_LIST_SNAPSHOTS: 'athena:data:list-snapshots',
   DATA_RESTORE_SNAPSHOT: 'athena:data:restore-snapshot',
+  DIAGNOSTICS_RUN_READINESS: 'athena:diagnostics:run-readiness',
+  SYSTEM_ASSESS_HARDWARE: 'athena:system:assess-hardware',
 
   // Workspace Operations
   WORKSPACE_SELECT_DIRECTORY: 'athena:workspace:select-directory',
@@ -54,17 +59,25 @@ export const IPC_CHANNELS = {
 
   // Local AI Runtime (Ollama)
   OLLAMA_PING: 'athena:ollama:ping',
+  OLLAMA_INSPECT_ENV: 'athena:ollama:inspect-env',
+  OLLAMA_START_RUNTIME: 'athena:ollama:start-runtime',
+  OLLAMA_INSTALL_WINGET: 'athena:ollama:install-winget',
+  OLLAMA_CANCEL_INSTALL: 'athena:ollama:cancel-install',
   OLLAMA_LIST_MODELS: 'athena:ollama:list-models',
+  OLLAMA_VERIFY_MODEL: 'athena:ollama:verify-model',
   OLLAMA_CHAT: 'athena:ollama:chat',
   OLLAMA_ABORT_CHAT: 'athena:ollama:abort-chat',
   OLLAMA_GENERATE: 'athena:ollama:generate',
   OLLAMA_PULL_MODEL: 'athena:ollama:pull-model',
+  OLLAMA_ABORT_PULL: 'athena:ollama:abort-pull',
   OLLAMA_DELETE_MODEL: 'athena:ollama:delete-model',
   OLLAMA_CHAT_CHUNK: 'athena:ollama:chat-chunk',
   OLLAMA_PULL_PROGRESS: 'athena:ollama:pull-progress',
+  OLLAMA_INSTALL_LOG: 'athena:ollama:install-log',
 
   // Knowledge & Local Indexing
   KNOWLEDGE_LIST: 'athena:knowledge:list',
+  KNOWLEDGE_SEED_PACK: 'athena:knowledge:seed-pack',
   KNOWLEDGE_ADD_WORKSPACE: 'athena:knowledge:add-workspace',
   KNOWLEDGE_ADD_FILES: 'athena:knowledge:add-files',
   KNOWLEDGE_REMOVE: 'athena:knowledge:remove',

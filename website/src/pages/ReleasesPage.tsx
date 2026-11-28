@@ -21,7 +21,7 @@ export const ReleasesPage: React.FC = () => {
   const [platform, setPlatform] = useState<PlatformId | 'all'>('all');
   const [page, setPage] = useState(1);
 
-  const { status, data, source, error, reload } = useReleaseList({
+  const { status, data, source, isStale, fetchedAt, error, reload } = useReleaseList({
     search,
     channel,
     platform,
@@ -63,6 +63,23 @@ export const ReleasesPage: React.FC = () => {
               <Link to="/download" className="btn btn-secondary btn-sm">
                 Download Page
               </Link>
+            </div>
+          )}
+
+          {isStale && status === 'ready' && (
+            <div className="notice-banner" role="status">
+              <span>
+                <strong>Showing cached release data</strong> (fetched{' '}
+                {fetchedAt ? formatReleaseDate(fetchedAt) : 'earlier'}); live refresh failed.
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => reload(true)}
+              >
+                <RefreshCw size={14} />
+                Refresh
+              </button>
             </div>
           )}
 
@@ -132,7 +149,7 @@ export const ReleasesPage: React.FC = () => {
                   <strong>Unable to load release archive:</strong> {error}
                 </span>
               </div>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => reload(true)}>
                 <RefreshCw size={14} />
                 Retry
               </button>

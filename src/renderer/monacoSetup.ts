@@ -1,22 +1,36 @@
 import { loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import editorWorker from 'monaco-editor/editor/editor.worker?worker';
+import jsonWorker from 'monaco-editor/language/json/json.worker?worker';
+import cssWorker from 'monaco-editor/language/css/css.worker?worker';
+import htmlWorker from 'monaco-editor/language/html/html.worker?worker';
+import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker';
 
-// Bind Monaco locally so zero CDN / network calls are made (strictly offline-capable).
-(self as any).MonacoEnvironment = {
-  getWorker(_: unknown, label: string) {
-    if (label === 'json') return new jsonWorker();
-    if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker();
-    if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker();
-    if (label === 'typescript' || label === 'javascript') return new tsWorker();
-    return new editorWorker();
-  },
-};
+let configured = false;
 
-loader.config({ monaco });
+export function ensureMonacoConfigured(): typeof monaco {
+  if (!configured) {
+    (self as any).MonacoEnvironment = {
+      getWorker(_: unknown, label: string) {
+        if (label === 'json') return new jsonWorker();
+        if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker();
+        if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker();
+        if (label === 'typescript' || label === 'javascript') return new tsWorker();
+        return new editorWorker();
+      },
+    };
+    loader.config({ monaco });
+    configured = true;
+  }
+  return monaco;
+}
+
+export function toMonacoModelUri(filePath: string): string {
+  if (!filePath) return '';
+  if (/^(file|inmemory|untitled):/i.test(filePath)) return filePath;
+  return monaco.Uri.file(filePath).toString();
+}
+
+ensureMonacoConfigured();
 
 export { monaco };

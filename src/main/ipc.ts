@@ -40,13 +40,20 @@ import {
 } from './git.js';
 import { GitHubService } from './github.js';
 import { KnowledgeService } from './knowledge.js';
+import { assessHardware, runReadinessDiagnostics } from './diagnostics.js';
 import {
   abortOllamaChat,
+  abortOllamaPull,
+  cancelOllamaInstall,
   checkOllamaAvailability,
   deleteOllamaModel,
   generateOllamaCompletion,
+  inspectOllamaEnvironment,
+  installOllamaViaWinget,
   pullOllamaModel,
+  startOllamaRuntime,
   streamOllamaChat,
+  verifyOllamaModel,
 } from './ollama.js';
 import { detectProject, ProjectRunner } from './runner.js';
 import { isPathInsideWorkspace } from './security.js';
@@ -135,6 +142,19 @@ export function registerIpcHandlers(
   );
 
   ipcMain.handle(IPC_CHANNELS.DATA_GET_STATS, async () => dataManager.getStats());
+  ipcMain.handle(IPC_CHANNELS.DATA_INIT_VERIFY, async () =>
+    dataManager.initAndVerifyDataDir(settingsManager.getAll())
+  );
+  ipcMain.handle(IPC_CHANNELS.DATA_GET_SETUP_STATE, async () => dataManager.getSetupState());
+  ipcMain.handle(IPC_CHANNELS.DATA_UPDATE_SETUP_STATE, async (_e, partial) =>
+    dataManager.updateSetupState(partial)
+  );
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_RUN_READINESS, async () =>
+    runReadinessDiagnostics(dataManager, settingsManager.getAll(), knowledgeService)
+  );
+  ipcMain.handle(IPC_CHANNELS.SYSTEM_ASSESS_HARDWARE, async () =>
+    assessHardware(dataManager.rootDir)
+  );
   ipcMain.handle(IPC_CHANNELS.DATA_CLEAR_CACHE, async () => dataManager.clearCache());
   ipcMain.handle(IPC_CHANNELS.DATA_OPEN_DIRECTORY, async () => {
     const res = await shell.openPath(dataManager.rootDir);
@@ -305,11 +325,79 @@ export function registerIpcHandlers(
     return checkOllamaAvailability(target);
   });
 
+  ipcMain.handle(IPC_CHANNELS.OLLAMA_INSPECT_ENV, async (_e, endpoint?: string) => {
+    const target = endpoint || settingsManager.get('ollamaEndpoint');
+    const env = await inspectOllamaEnvironment(target);
+    const now = new Date().toISOString();
+    dataManager.updateSetupState({
+      ollamaDetected: {
+        status: env.installed ? 'found' : 'missing',
+        executablePath: env.executablePath,
+        version: env.executableVersion,
+        updatedAt: now,
+      },
+      ollamaInstalled: {
+        status: env.installed ? 'installed' : 'not_installed',
+        updatedAt: now,
+      },
+      ollamaApiVerified: {
+        status: env.apiReachable ? 'verified' : 'unreachable',
+        endpoint: target,
+        updatedAt: now,
+      },
+      modelInstalled: {
+        status: env.models.length > 0 ? 'installed' : 'none',
+        modelId: settingsManager.get('selectedModel') || env.models[0]?.name || null,
+        updatedAt: now,
+      },
+    });
+    return env;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.OLLAMA_START_RUNTIME, async (_e, endpoint?: string) => {
+    const target = endpoint || settingsManager.get('ollamaEndpoint');
+    return startOllamaRuntime(target);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.OLLAMA_INSTALL_WINGET, async () =>
+    installOllamaViaWinget((line) => {
+      sendToRenderer(IPC_CHANNELS.OLLAMA_INSTALL_LOG, line);
+    })
+  );
+
+  ipcMain.handle(IPC_CHANNELS.OLLAMA_CANCEL_INSTALL, async () => cancelOllamaInstall());
+
   ipcMain.handle(IPC_CHANNELS.OLLAMA_LIST_MODELS, async (_e, endpoint?: string) => {
     const target = endpoint || settingsManager.get('ollamaEndpoint');
     const status = await checkOllamaAvailability(target);
     return status.models;
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_VERIFY_MODEL,
+    async (_e, { model, endpoint }: { model: string; endpoint?: string }) => {
+      const target = endpoint || settingsManager.get('ollamaEndpoint');
+      const res = await verifyOllamaModel(model, target);
+      const now = new Date().toISOString();
+      dataManager.updateSetupState({
+        modelVerified: {
+          status: res.ok ? 'verified' : 'failed',
+          modelId: model,
+          testLatencyMs: res.latencyMs,
+          sampleOutput: res.sampleOutput,
+          error: res.error,
+          updatedAt: now,
+        },
+        aiOperational: {
+          status: res.ok ? 'ready' : 'degraded',
+          updatedAt: now,
+        },
+        setupCompleted: res.ok,
+        lastError: res.ok ? null : res.error ?? null,
+      });
+      return res;
+    }
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.OLLAMA_CHAT,
@@ -354,6 +442,10 @@ export function registerIpcHandlers(
     }
   );
 
+  ipcMain.handle(IPC_CHANNELS.OLLAMA_ABORT_PULL, async (_e, model: string) =>
+    abortOllamaPull(model)
+  );
+
   ipcMain.handle(
     IPC_CHANNELS.OLLAMA_DELETE_MODEL,
     async (_e, { model, endpoint }: { model: string; endpoint?: string }) => {
@@ -364,6 +456,7 @@ export function registerIpcHandlers(
 
   // Knowledge Library & Local Indexing
   ipcMain.handle(IPC_CHANNELS.KNOWLEDGE_LIST, async () => knowledgeService.listSources());
+  ipcMain.handle(IPC_CHANNELS.KNOWLEDGE_SEED_PACK, async () => knowledgeService.seedInitialPack());
   ipcMain.handle(IPC_CHANNELS.KNOWLEDGE_ADD_WORKSPACE, async () => {
     const ws = getWorkspace();
     if (!ws) return { ok: false, error: 'No workspace selected' };

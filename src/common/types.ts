@@ -59,8 +59,131 @@ export interface OllamaStatus {
   isAvailable: boolean;
   endpoint: string;
   latencyMs?: number;
+  version?: string;
   models: OllamaModelInfo[];
+  runningModels?: string[];
   errorMessage?: string;
+}
+
+export interface OllamaEnvironmentStatus {
+  installed: boolean;
+  executablePath: string | null;
+  executableVersion: string | null;
+  running: boolean;
+  apiReachable: boolean;
+  endpoint: string;
+  modelsDirExists: boolean;
+  wingetAvailable: boolean;
+  models: OllamaModelInfo[];
+  runningModels: string[];
+  error?: string;
+}
+
+export interface HardwareAssessment {
+  platform: string;
+  arch: string;
+  totalRamBytes: number;
+  freeRamBytes: number;
+  cpuModel: string;
+  cpuCores: number;
+  gpuInfo: string | null;
+  gpuUncertain: boolean;
+  diskFreeBytes: number | null;
+  diskTotalBytes: number | null;
+}
+
+export interface ModelVerificationResult {
+  ok: boolean;
+  model: string;
+  latencyMs?: number;
+  sampleOutput?: string;
+  error?: string;
+}
+
+export type OfflineReadinessState =
+  | 'not_configured'
+  | 'setup_required'
+  | 'runtime_unavailable'
+  | 'model_unavailable'
+  | 'model_downloading'
+  | 'model_verification_pending'
+  | 'ai_operational'
+  | 'offline_ready'
+  | 'degraded';
+
+export type DiagnosticCheckStatus = 'passed' | 'failed' | 'not_tested' | 'requires_setup';
+
+export interface ReadinessCheckItem {
+  id: string;
+  label: string;
+  status: DiagnosticCheckStatus;
+  detail: string;
+  networkDependent?: boolean;
+}
+
+export interface OfflineReadinessReport {
+  state: OfflineReadinessState;
+  checkedAt: string;
+  checks: ReadinessCheckItem[];
+  summary: string;
+}
+
+export interface AthenaSetupState {
+  schemaVersion: number;
+  appInitialized: { status: 'done' | 'failed'; updatedAt: string; detail?: string };
+  dataDirInitialized: {
+    status: 'done' | 'failed';
+    path: string;
+    writable: boolean;
+    updatedAt: string;
+    detail?: string;
+  };
+  ollamaDetected: {
+    status: 'pending' | 'found' | 'missing';
+    executablePath: string | null;
+    version: string | null;
+    updatedAt: string;
+  };
+  ollamaInstalled: {
+    status: 'unknown' | 'installed' | 'not_installed';
+    method?: string;
+    updatedAt: string;
+  };
+  ollamaApiVerified: {
+    status: 'pending' | 'verified' | 'unreachable';
+    endpoint: string;
+    latencyMs?: number;
+    updatedAt: string;
+  };
+  modelInstalled: {
+    status: 'pending' | 'installed' | 'none';
+    modelId: string | null;
+    updatedAt: string;
+  };
+  modelVerified: {
+    status: 'pending' | 'verified' | 'failed';
+    modelId: string | null;
+    testLatencyMs?: number;
+    sampleOutput?: string;
+    error?: string;
+    updatedAt: string;
+  };
+  aiOperational: {
+    status: 'pending' | 'ready' | 'degraded';
+    updatedAt: string;
+  };
+  setupCompleted: boolean;
+  skippedAiSetup: boolean;
+  lastError: string | null;
+}
+
+export interface DataInitReport {
+  ok: boolean;
+  rootDir: string;
+  writable: boolean;
+  failedComponent?: string;
+  error?: string;
+  stats: AthenaDataStats;
 }
 
 export interface OllamaChatMessage {
@@ -294,6 +417,9 @@ export interface AthenaApi {
   setSetting: <K extends keyof AthenaSettings>(key: K, value: AthenaSettings[K]) => Promise<boolean>;
 
   getDataStats: () => Promise<AthenaDataStats>;
+  initAndVerifyDataDir: () => Promise<DataInitReport>;
+  getSetupState: () => Promise<AthenaSetupState>;
+  updateSetupState: (partial: Partial<AthenaSetupState>) => Promise<AthenaSetupState>;
   clearCache: () => Promise<boolean>;
   openDataDirectory: () => Promise<boolean>;
   listConversations: () => Promise<ConversationRecord[]>;
@@ -301,6 +427,8 @@ export interface AthenaApi {
   deleteConversation: (id: string) => Promise<boolean>;
   listSnapshots: () => Promise<SnapshotRecord[]>;
   restoreSnapshot: (id: string) => Promise<{ ok: boolean; restored: string[]; error?: string }>;
+  runReadinessDiagnostics: () => Promise<OfflineReadinessReport>;
+  assessHardware: () => Promise<HardwareAssessment>;
 
   selectWorkspaceDirectory: () => Promise<WorkspaceDirectoryResult>;
   getCurrentWorkspace: () => Promise<string | null>;
@@ -331,7 +459,12 @@ export interface AthenaApi {
   onRunnerStatus: (cb: (status: RunnerStatus) => void) => () => void;
 
   checkOllamaStatus: (endpoint?: string) => Promise<OllamaStatus>;
+  inspectOllamaEnvironment: (endpoint?: string) => Promise<OllamaEnvironmentStatus>;
+  startOllamaRuntime: (endpoint?: string) => Promise<{ ok: boolean; started: boolean; error?: string; status?: OllamaStatus }>;
+  installOllamaViaWinget: () => Promise<{ ok: boolean; error?: string }>;
+  cancelOllamaInstall: () => Promise<boolean>;
   listOllamaModels: (endpoint?: string) => Promise<OllamaModelInfo[]>;
+  verifyOllamaModel: (model: string, endpoint?: string) => Promise<ModelVerificationResult>;
   streamOllamaChat: (
     requestId: string,
     model: string,
@@ -346,11 +479,14 @@ export interface AthenaApi {
     endpoint?: string
   ) => Promise<{ ok: boolean; response: string; error?: string }>;
   pullOllamaModel: (model: string, endpoint?: string) => Promise<{ ok: boolean; error?: string }>;
+  abortOllamaPull: (model: string) => Promise<boolean>;
   deleteOllamaModel: (model: string, endpoint?: string) => Promise<{ ok: boolean; error?: string }>;
   onOllamaChatChunk: (cb: (event: OllamaChatChunkEvent) => void) => () => void;
   onOllamaPullProgress: (cb: (event: OllamaPullProgressEvent) => void) => () => void;
+  onOllamaInstallLog: (cb: (line: string) => void) => () => void;
 
   listKnowledgeSources: () => Promise<KnowledgeSource[]>;
+  seedInitialKnowledgePack: () => Promise<{ ok: boolean; added: KnowledgeSource[]; error?: string }>;
   indexWorkspaceKnowledge: () => Promise<{ ok: boolean; source?: KnowledgeSource; error?: string }>;
   addKnowledgeFiles: () => Promise<{ ok: boolean; added: KnowledgeSource[]; error?: string }>;
   removeKnowledgeSource: (id: string) => Promise<boolean>;

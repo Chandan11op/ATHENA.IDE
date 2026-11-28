@@ -24,6 +24,9 @@ const api: AthenaApi = {
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET_VALUE, { key, value }),
 
   getDataStats: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_GET_STATS),
+  initAndVerifyDataDir: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_INIT_VERIFY),
+  getSetupState: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_GET_SETUP_STATE),
+  updateSetupState: (partial) => ipcRenderer.invoke(IPC_CHANNELS.DATA_UPDATE_SETUP_STATE, partial),
   clearCache: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_CLEAR_CACHE),
   openDataDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_OPEN_DIRECTORY),
   listConversations: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_LIST_CONVERSATIONS),
@@ -34,6 +37,8 @@ const api: AthenaApi = {
   listSnapshots: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_LIST_SNAPSHOTS),
   restoreSnapshot: (id: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.DATA_RESTORE_SNAPSHOT, id),
+  runReadinessDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_RUN_READINESS),
+  assessHardware: () => ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_ASSESS_HARDWARE),
 
   selectWorkspaceDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.WORKSPACE_SELECT_DIRECTORY),
   getCurrentWorkspace: () => ipcRenderer.invoke(IPC_CHANNELS.WORKSPACE_GET_CURRENT),
@@ -75,7 +80,15 @@ const api: AthenaApi = {
   onRunnerStatus: (cb) => subscribe(IPC_CHANNELS.RUNNER_STATUS, cb),
 
   checkOllamaStatus: (endpoint?: string) => ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_PING, endpoint),
+  inspectOllamaEnvironment: (endpoint?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_INSPECT_ENV, endpoint),
+  startOllamaRuntime: (endpoint?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_START_RUNTIME, endpoint),
+  installOllamaViaWinget: () => ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_INSTALL_WINGET),
+  cancelOllamaInstall: () => ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_CANCEL_INSTALL),
   listOllamaModels: (endpoint?: string) => ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_MODELS, endpoint),
+  verifyOllamaModel: (model: string, endpoint?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_VERIFY_MODEL, { model, endpoint }),
   streamOllamaChat: (
     requestId: string,
     model: string,
@@ -92,12 +105,16 @@ const api: AthenaApi = {
   ) => ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_GENERATE, { model, prompt, suffix, endpoint }),
   pullOllamaModel: (model: string, endpoint?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_PULL_MODEL, { model, endpoint }),
+  abortOllamaPull: (model: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_ABORT_PULL, model),
   deleteOllamaModel: (model: string, endpoint?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_DELETE_MODEL, { model, endpoint }),
   onOllamaChatChunk: (cb) => subscribe(IPC_CHANNELS.OLLAMA_CHAT_CHUNK, cb),
   onOllamaPullProgress: (cb) => subscribe(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, cb),
+  onOllamaInstallLog: (cb) => subscribe(IPC_CHANNELS.OLLAMA_INSTALL_LOG, cb),
 
   listKnowledgeSources: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST),
+  seedInitialKnowledgePack: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEED_PACK),
   indexWorkspaceKnowledge: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_ADD_WORKSPACE),
   addKnowledgeFiles: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_ADD_FILES),
   removeKnowledgeSource: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_REMOVE, id),

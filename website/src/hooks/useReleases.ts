@@ -10,18 +10,24 @@ export interface AsyncState<T> {
   status: 'loading' | 'ready' | 'error';
   data: T | null;
   source: 'api' | 'mock' | null;
+  isStale: boolean;
+  fetchedAt: string | null;
   error: string | null;
-  reload: () => void;
+  reload: (bypassCache?: boolean) => void;
 }
 
 export function useLatestRelease(): AsyncState<Release | null> {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [data, setData] = useState<Release | null>(null);
   const [source, setSource] = useState<'api' | 'mock' | null>(null);
+  const [isStale, setIsStale] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const [reqState, setReqState] = useState({ nonce: 0, bypass: false });
 
-  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  const reload = useCallback((bypassCache = true) => {
+    setReqState((prev) => ({ nonce: prev.nonce + 1, bypass: bypassCache }));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -29,11 +35,13 @@ export function useLatestRelease(): AsyncState<Release | null> {
     setError(null);
 
     releaseService
-      .getLatestRelease()
+      .getLatestRelease(reqState.bypass)
       .then((res) => {
         if (!active) return;
         setData(res.data);
         setSource(res.source);
+        setIsStale(Boolean(res.isStale));
+        setFetchedAt(res.fetchedAt);
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -45,19 +53,23 @@ export function useLatestRelease(): AsyncState<Release | null> {
     return () => {
       active = false;
     };
-  }, [nonce]);
+  }, [reqState]);
 
-  return { status, data, source, error, reload };
+  return { status, data, source, isStale, fetchedAt, error, reload };
 }
 
 export function useReleaseList(params: ReleaseQueryParams): AsyncState<ReleaseListPayload> {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [data, setData] = useState<ReleaseListPayload | null>(null);
   const [source, setSource] = useState<'api' | 'mock' | null>(null);
+  const [isStale, setIsStale] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const [reqState, setReqState] = useState({ nonce: 0, bypass: false });
 
-  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  const reload = useCallback((bypassCache = true) => {
+    setReqState((prev) => ({ nonce: prev.nonce + 1, bypass: bypassCache }));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -71,11 +83,14 @@ export function useReleaseList(params: ReleaseQueryParams): AsyncState<ReleaseLi
         search: params.search,
         page: params.page,
         pageSize: params.pageSize,
+        bypassCache: reqState.bypass,
       })
       .then((res) => {
         if (!active) return;
         setData(res.data);
         setSource(res.source);
+        setIsStale(Boolean(res.isStale));
+        setFetchedAt(res.fetchedAt);
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -87,19 +102,23 @@ export function useReleaseList(params: ReleaseQueryParams): AsyncState<ReleaseLi
     return () => {
       active = false;
     };
-  }, [params.channel, params.platform, params.search, params.page, params.pageSize, nonce]);
+  }, [params.channel, params.platform, params.search, params.page, params.pageSize, reqState]);
 
-  return { status, data, source, error, reload };
+  return { status, data, source, isStale, fetchedAt, error, reload };
 }
 
 export function useReleaseDetail(tag: string | undefined): AsyncState<Release | null> {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [data, setData] = useState<Release | null>(null);
   const [source, setSource] = useState<'api' | 'mock' | null>(null);
+  const [isStale, setIsStale] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const [reqState, setReqState] = useState({ nonce: 0, bypass: false });
 
-  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  const reload = useCallback((bypassCache = true) => {
+    setReqState((prev) => ({ nonce: prev.nonce + 1, bypass: bypassCache }));
+  }, []);
 
   useEffect(() => {
     if (!tag) {
@@ -113,11 +132,13 @@ export function useReleaseDetail(tag: string | undefined): AsyncState<Release | 
     setError(null);
 
     releaseService
-      .getReleaseByTag(tag)
+      .getReleaseByTag(tag, reqState.bypass)
       .then((res) => {
         if (!active) return;
         setData(res.data);
         setSource(res.source);
+        setIsStale(Boolean(res.isStale));
+        setFetchedAt(res.fetchedAt);
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -129,7 +150,7 @@ export function useReleaseDetail(tag: string | undefined): AsyncState<Release | 
     return () => {
       active = false;
     };
-  }, [tag, nonce]);
+  }, [tag, reqState]);
 
-  return { status, data, source, error, reload };
+  return { status, data, source, isStale, fetchedAt, error, reload };
 }

@@ -332,7 +332,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             ollama run qwen2.5-coder:1.5b
           </code>
           <button type="button" className="athena-btn-primary" onClick={onOpenOnboarding}>
-            Open Setup Check
+            Open Offline AI Setup Wizard
           </button>
         </div>
       )}

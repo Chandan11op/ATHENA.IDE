@@ -3,20 +3,32 @@ import path from 'path';
 import { app } from 'electron';
 import {
   AthenaDataStats,
+  AthenaSettings,
+  AthenaSetupState,
   ConversationRecord,
+  DataInitReport,
   SnapshotRecord,
 } from '../common/types.js';
+import { DEFAULT_OLLAMA_ENDPOINT } from '../common/constants.js';
 import { isPathInsideWorkspace } from './security.js';
 
 export const ATHENA_DATA_SUBDIRS = [
+  'config',
   'models',
   'knowledge',
+  'knowledge/docs',
+  'knowledge/snippets',
+  'knowledge/resources',
+  'knowledge/manifests',
   'indexes',
   'embeddings',
+  'workspace-context',
   'cache',
   'conversations',
   'settings',
   'logs',
+  'diagnostics',
+  'setup',
   'extensions',
   'templates',
   'snapshots',
@@ -49,6 +61,166 @@ export class AthenaDataManager {
     const target = path.join(this.rootDir, name);
     fs.mkdirSync(target, { recursive: true });
     return target;
+  }
+
+  public initAndVerifyDataDir(settings?: AthenaSettings): DataInitReport {
+    const now = new Date().toISOString();
+    try {
+      this.ensureStructure();
+
+      // Verify directory permissions using write/read/delete probe in diagnostics
+      const probePath = path.join(this.getSubdir('diagnostics'), `.write-probe-${Date.now()}.tmp`);
+      fs.writeFileSync(probePath, 'ok', 'utf8');
+      const readBack = fs.readFileSync(probePath, 'utf8');
+      fs.rmSync(probePath, { force: true });
+      if (readBack !== 'ok') {
+        throw new Error('Read-back verification failed in diagnostics directory');
+      }
+
+      // Ensure versioned config/config.json exists without overwriting existing user config
+      this.writeVersionedConfig(settings);
+
+      // Ensure setup-state.json exists and records dataDirInitialized cleanly
+      const currentSetup = this.getSetupState();
+      this.updateSetupState({
+        appInitialized: { status: 'done', updatedAt: currentSetup.appInitialized.updatedAt || now },
+        dataDirInitialized: {
+          status: 'done',
+          path: this.rootDir,
+          writable: true,
+          updatedAt: now,
+        },
+        lastError: null,
+      });
+
+      return {
+        ok: true,
+        rootDir: this.rootDir,
+        writable: true,
+        stats: this.getStats(),
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to initialize athena.data';
+      return {
+        ok: false,
+        rootDir: this.rootDir,
+        writable: false,
+        failedComponent: 'athena.data',
+        error: msg,
+        stats: { rootDir: this.rootDir, totalBytes: 0, subdirectories: [] },
+      };
+    }
+  }
+
+  public writeVersionedConfig(settings?: AthenaSettings): void {
+    const configPath = path.join(this.getSubdir('config'), 'config.json');
+    let existing: Record<string, unknown> = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Record<string, unknown>;
+      } catch {
+        existing = {};
+      }
+    }
+
+    const nextConfig = {
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      dataDirectory: this.rootDir,
+      ollamaEndpoint: settings?.ollamaEndpoint ?? existing.ollamaEndpoint ?? DEFAULT_OLLAMA_ENDPOINT,
+      selectedModel: settings?.selectedModel ?? existing.selectedModel ?? '',
+      privacy: {
+        loopbackOnlyAi: true,
+        telemetryEnabled: false,
+        excludeSensitiveFiles: true,
+      },
+      knowledge: {
+        autoIndexWorkspace: false,
+        maxChunkChars: 700,
+      },
+    };
+
+    const temp = `${configPath}.tmp.${Date.now()}`;
+    fs.writeFileSync(temp, JSON.stringify(nextConfig, null, 2), 'utf8');
+    fs.renameSync(temp, configPath);
+  }
+
+  private defaultSetupState(): AthenaSetupState {
+    const now = new Date().toISOString();
+    return {
+      schemaVersion: 1,
+      appInitialized: { status: 'done', updatedAt: now },
+      dataDirInitialized: {
+        status: 'done',
+        path: this.rootDir,
+        writable: true,
+        updatedAt: now,
+      },
+      ollamaDetected: {
+        status: 'pending',
+        executablePath: null,
+        version: null,
+        updatedAt: now,
+      },
+      ollamaInstalled: {
+        status: 'unknown',
+        updatedAt: now,
+      },
+      ollamaApiVerified: {
+        status: 'pending',
+        endpoint: DEFAULT_OLLAMA_ENDPOINT,
+        updatedAt: now,
+      },
+      modelInstalled: {
+        status: 'pending',
+        modelId: null,
+        updatedAt: now,
+      },
+      modelVerified: {
+        status: 'pending',
+        modelId: null,
+        updatedAt: now,
+      },
+      aiOperational: {
+        status: 'pending',
+        updatedAt: now,
+      },
+      setupCompleted: false,
+      skippedAiSetup: false,
+      lastError: null,
+    };
+  }
+
+  public getSetupState(): AthenaSetupState {
+    const statePath = path.join(this.getSubdir('setup'), 'setup-state.json');
+    if (fs.existsSync(statePath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8')) as Partial<AthenaSetupState>;
+        return { ...this.defaultSetupState(), ...parsed };
+      } catch {
+        // Recover cleanly to defaults if corrupt
+      }
+    }
+    const fresh = this.defaultSetupState();
+    this.saveSetupState(fresh);
+    return fresh;
+  }
+
+  private saveSetupState(state: AthenaSetupState): void {
+    const statePath = path.join(this.getSubdir('setup'), 'setup-state.json');
+    const temp = `${statePath}.tmp.${Date.now()}`;
+    fs.writeFileSync(temp, JSON.stringify(state, null, 2), 'utf8');
+    fs.renameSync(temp, statePath);
+  }
+
+  public updateSetupState(partial: Partial<AthenaSetupState>): AthenaSetupState {
+    const current = this.getSetupState();
+    const next: AthenaSetupState = {
+      ...current,
+      ...partial,
+    };
+    this.saveSetupState(next);
+    return next;
   }
 
   public getStats(): AthenaDataStats {

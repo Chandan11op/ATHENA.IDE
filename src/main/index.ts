@@ -6,6 +6,7 @@ import { ExtensionManager } from './extensions.js';
 import { GitHubService } from './github.js';
 import { registerIpcHandlers } from './ipc.js';
 import { KnowledgeService } from './knowledge.js';
+import { stopManagedOllamaIfStarted } from './ollama.js';
 import { ProjectRunner } from './runner.js';
 import { hardenBrowserWindow } from './security.js';
 import { SettingsManager } from './settings.js';
@@ -161,7 +162,7 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    dataManager.ensureStructure();
+    dataManager.initAndVerifyDataDir(settingsManager.getAll());
     buildApplicationMenu();
     registerIpcHandlers(
       {
@@ -194,6 +195,7 @@ if (!gotTheLock) {
 
   app.on('before-quit', () => {
     terminalManager.closeAll();
+    stopManagedOllamaIfStarted();
     void projectRunner.stop();
   });
 

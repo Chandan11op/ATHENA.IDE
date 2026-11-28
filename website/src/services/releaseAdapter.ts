@@ -20,9 +20,9 @@ import {
 } from '../types/release';
 
 export interface ReleaseDataAdapter {
-  getLatestRelease(): Promise<ApiResponse<Release | null>>;
-  listReleases(params?: ReleaseQueryParams): Promise<ApiResponse<ReleaseListPayload>>;
-  getReleaseByTag(tag: string): Promise<ApiResponse<Release | null>>;
+  getLatestRelease(bypassCache?: boolean): Promise<ApiResponse<Release | null>>;
+  listReleases(params?: ReleaseQueryParams & { bypassCache?: boolean }): Promise<ApiResponse<ReleaseListPayload>>;
+  getReleaseByTag(tag: string, bypassCache?: boolean): Promise<ApiResponse<Release | null>>;
 }
 
 function mapPlatform(p: BackendPlatform): PlatformId | null {
@@ -150,27 +150,38 @@ export function filterAndPaginateReleases(
 }
 
 export class BackendGitHubReleaseAdapter implements ReleaseDataAdapter {
-  async getLatestRelease(): Promise<ApiResponse<Release | null>> {
-    const res = await getLatestStableRelease();
+  async getLatestRelease(bypassCache = false): Promise<ApiResponse<Release | null>> {
+    const res = await getLatestStableRelease({ bypassCache });
     if (!res.ok) {
-      throw new Error(res.error?.message ?? 'Unable to load latest release');
+      const resetNote = res.meta.rateLimitResetAt
+        ? ` (Resets at ${new Date(res.meta.rateLimitResetAt).toLocaleTimeString()})`
+        : '';
+      throw new Error((res.error?.message ?? 'Unable to load latest release') + resetNote);
     }
     return {
       data: res.data ? mapBackendReleaseToFrontend(res.data) : null,
       fetchedAt: res.meta.fetchedAt,
       source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
     };
   }
 
-  async listReleases(params: ReleaseQueryParams = {}): Promise<ApiResponse<ReleaseListPayload>> {
+  async listReleases(
+    params: ReleaseQueryParams & { bypassCache?: boolean } = {}
+  ): Promise<ApiResponse<ReleaseListPayload>> {
     const res = await getAllReleases({
       page: params.page ?? 1,
       perPage: params.pageSize ?? 20,
       includePrereleases: params.channel !== 'stable',
       channel: params.channel === 'stable' ? 'stable' : undefined,
+      bypassCache: params.bypassCache,
     });
     if (!res.ok) {
-      throw new Error(res.error?.message ?? 'Unable to load releases');
+      const resetNote = res.meta.rateLimitResetAt
+        ? ` (Resets at ${new Date(res.meta.rateLimitResetAt).toLocaleTimeString()})`
+        : '';
+      throw new Error((res.error?.message ?? 'Unable to load releases') + resetNote);
     }
 
     const mapped = res.data.releases.map(mapBackendReleaseToFrontend);
@@ -190,11 +201,13 @@ export class BackendGitHubReleaseAdapter implements ReleaseDataAdapter {
       },
       fetchedAt: res.meta.fetchedAt,
       source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
     };
   }
 
-  async getReleaseByTag(tag: string): Promise<ApiResponse<Release | null>> {
-    const res = await getReleaseByTag(tag);
+  async getReleaseByTag(tag: string, bypassCache = false): Promise<ApiResponse<Release | null>> {
+    const res = await getReleaseByTag(tag, { bypassCache });
     if (!res.ok) {
       throw new Error(res.error?.message ?? 'Unable to load release details');
     }
@@ -202,6 +215,8 @@ export class BackendGitHubReleaseAdapter implements ReleaseDataAdapter {
       data: res.data ? mapBackendReleaseToFrontend(res.data) : null,
       fetchedAt: res.meta.fetchedAt,
       source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
     };
   }
 }

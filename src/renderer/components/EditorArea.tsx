@@ -19,7 +19,7 @@ import {
   OllamaStatus,
   RunnerStatus,
 } from '@common/types.js';
-import { monaco } from '../monacoSetup.js';
+import { monaco, ensureMonacoConfigured, toMonacoModelUri } from '../monacoSetup.js';
 import { BottomPanelTab, EditorTab } from '../types/workbench.js';
 import { AthenaMark } from './AthenaMark.js';
 import { TerminalPanel } from './TerminalPanel.js';
@@ -126,6 +126,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
   }, [onResizeBottomPanel]);
 
   useEffect(() => {
+    ensureMonacoConfigured();
     return () => {
       inlineProviderRef.current?.dispose();
     };
@@ -391,7 +392,7 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
         <Editor
           height="100%"
           theme={settings.theme === 'dark' ? 'vs-dark' : 'vs'}
-          path={activeTab.path}
+          path={toMonacoModelUri(activeTab.path)}
           language={activeTab.language || 'plaintext'}
           value={activeTab.content ?? ''}
           onChange={(val) => onUpdateTabContent(activeTab.id, val ?? '')}
