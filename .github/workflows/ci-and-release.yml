@@ -1,0 +1,74 @@
+name: CI & Desktop Packaging
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-desktop-and-website:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Type-check desktop app
+        run: npm run typecheck
+
+      - name: Run unit & integration tests
+        run: npm test
+
+      - name: Build desktop Electron bundles
+        run: npm run build
+
+      - name: Install & verify official website
+        working-directory: website
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+  package-windows:
+    needs: verify-desktop-and-website
+    runs-on: windows-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & Package Windows NSIS + Portable
+        run: npm run pack:win
+
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path release -File | Where-Object { $_.Extension -in '.exe', '.msi', '.zip' } | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -FilePath "release/SHA256SUMS.txt" -Append -Encoding utf8
+          }
+
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: athena-ide-windows
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error

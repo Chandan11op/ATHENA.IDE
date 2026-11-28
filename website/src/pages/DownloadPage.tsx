@@ -32,7 +32,7 @@ const PLATFORMS: Array<{
 ];
 
 export const DownloadPage: React.FC = () => {
-  const { status, data: latest, source, error, reload } = useLatestRelease();
+  const { status, data: latest, source, isStale, fetchedAt, error, reload } = useLatestRelease();
   const visitorPlatform = detectVisitorPlatform();
 
   const getAssetsForPlatform = (platform: PlatformId): ReleaseAsset[] => {
@@ -68,6 +68,24 @@ export const DownloadPage: React.FC = () => {
             </div>
           )}
 
+          {isStale && status === 'ready' && (
+            <div className="notice-banner" role="status">
+              <div>
+                <strong>Showing cached release status</strong> (last updated{' '}
+                {fetchedAt ? formatReleaseDate(fetchedAt) : 'recently'}); live GitHub API
+                check could not refresh.
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => reload(true)}
+              >
+                <RefreshCw size={14} />
+                Retry Live Check
+              </button>
+            </div>
+          )}
+
           {status === 'error' && (
             <div className="notice-banner error" role="alert">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -77,7 +95,11 @@ export const DownloadPage: React.FC = () => {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => reload(true)}
+                >
                   <RefreshCw size={14} />
                   Retry
                 </button>
@@ -152,12 +174,31 @@ export const DownloadPage: React.FC = () => {
               ) : (
                 <div className="notice-banner">
                   <div>
-                    <strong>No published releases yet.</strong> Check the{' '}
+                    <strong>Under Active Development — No Verified Release Published Yet.</strong>{' '}
+                    Athena.IDE has not yet published pre-built desktop installers on GitHub
+                    Releases. You can inspect release history in the{' '}
                     <Link to="/releases" style={{ textDecoration: 'underline' }}>
                       Release Archive
-                    </Link>{' '}
-                    or build directly from the GitHub repository.
+                    </Link>
+                    , check{' '}
+                    <a
+                      href="https://github.com/Chandan11op/ATHENA.IDE/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'underline' }}
+                    >
+                      GitHub Releases
+                    </a>
+                    , or build from source below.
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => reload(true)}
+                  >
+                    <RefreshCw size={14} />
+                    Check Again
+                  </button>
                 </div>
               )}
 

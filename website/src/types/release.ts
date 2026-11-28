@@ -63,4 +63,6 @@ export interface ApiResponse<T> {
   data: T;
   fetchedAt: string;
   source: 'api' | 'mock';
+  isStale?: boolean;
+  rateLimitResetAt?: string;
 }

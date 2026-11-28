@@ -68,7 +68,7 @@ export const ReleaseDetailPage: React.FC = () => {
                   <strong>Unable to load release:</strong> {error}
                 </span>
               </div>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => reload(true)}>
                 <RefreshCw size={14} />
                 Retry
               </button>

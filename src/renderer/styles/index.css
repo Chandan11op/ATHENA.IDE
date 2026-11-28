@@ -3,59 +3,65 @@
   --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
 }
 
-/* VS Code Dark Modern inspired palette */
+/* VS Code Dark+ Default Workbench Palette */
 body.theme-dark {
-  --bg-app: #1f1f1f;
-  --bg-surface: #181818;
-  --bg-surface-elevated: #252526;
+  --bg-app: #1e1e1e;
+  --bg-surface: #252526;
+  --bg-surface-elevated: #2d2d2d;
+  --bg-activitybar: #333333;
+  --bg-titlebar: #323233;
   --bg-hover: #2a2d2e;
   --bg-active-item: #37373d;
-  --bg-input: #2b2b2b;
-  --bg-editor: #1f1f1f;
-  --bg-tab-inactive: #181818;
-  --bg-tab-active: #1f1f1f;
+  --bg-input: #3c3c3c;
+  --bg-editor: #1e1e1e;
+  --bg-tab-inactive: #2d2d2d;
+  --bg-tab-active: #1e1e1e;
   --border-subtle: #2b2b2b;
   --border-strong: #3c3c3c;
   --text-primary: #cccccc;
   --text-bright: #ffffff;
-  --text-secondary: #9d9d9d;
-  --text-muted: #767676;
-  --accent-primary: #0078d4;
+  --text-secondary: #a0a0a0;
+  --text-muted: #858585;
+  --accent-primary: #007acc;
   --accent-hover: #1a86d9;
   --accent-cyan: #38bdf8;
   --accent-violet: #8b5cf6;
-  --accent-glow: rgba(0, 120, 212, 0.22);
-  --statusbar-bg: #181818;
-  --statusbar-badge-bg: #0078d4;
-  --success: #2ea043;
+  --accent-glow: rgba(0, 122, 204, 0.24);
+  --statusbar-bg: #007acc;
+  --statusbar-fg: #ffffff;
+  --statusbar-badge-bg: #16825d;
+  --success: #4ec9b0;
   --warning: #cca700;
   --danger: #f14c4c;
 }
 
-/* VS Code Light Modern inspired palette */
+/* VS Code Light+ Alternative Palette */
 body.theme-light {
   --bg-app: #ffffff;
-  --bg-surface: #f8f8f8;
-  --bg-surface-elevated: #f3f3f3;
+  --bg-surface: #f3f3f3;
+  --bg-surface-elevated: #ececec;
+  --bg-activitybar: #2c2c2c;
+  --bg-titlebar: #dddddd;
   --bg-hover: #e8e8e8;
   --bg-active-item: #e4e6f1;
   --bg-input: #ffffff;
   --bg-editor: #ffffff;
-  --bg-tab-inactive: #f3f3f3;
+  --bg-tab-inactive: #ececec;
   --bg-tab-active: #ffffff;
   --border-subtle: #e5e5e5;
   --border-strong: #cecece;
-  --text-primary: #3b3b3b;
-  --text-bright: #1f1f1f;
-  --text-secondary: #616161;
-  --text-muted: #8a8a8a;
+  --text-primary: #333333;
+  --text-bright: #111111;
+  --text-secondary: #555555;
+  --text-muted: #767676;
   --accent-primary: #005fb8;
   --accent-hover: #00509e;
   --accent-cyan: #0284c7;
   --accent-violet: #7c3aed;
   --accent-glow: rgba(0, 95, 184, 0.14);
-  --statusbar-bg: #f8f8f8;
-  --statusbar-badge-bg: #005fb8;
+  --statusbar-bg: #007acc;
+  --statusbar-fg: #ffffff;
+  --statusbar-badge-bg: #16825d;
   --success: #1a7f37;
   --warning: #bf8700;
   --danger: #d1242f;
@@ -77,6 +83,23 @@ body {
   line-height: 1.45;
 }
 
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.55);
+}
+
 button {
   font-family: inherit;
   font-size: inherit;
@@ -88,8 +111,13 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: 4px;
-  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  border-radius: 3px;
+  transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 button:focus-visible {
@@ -103,8 +131,8 @@ input, select, textarea {
   background: var(--bg-input);
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  padding: 5px 8px;
+  border-radius: 3px;
+  padding: 4px 8px;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -116,7 +144,7 @@ input:focus, select:focus, textarea:focus {
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 3px;
   color: var(--text-secondary);
 }
 
@@ -126,21 +154,30 @@ input:focus, select:focus, textarea:focus {
 }
 
 .workbench-icon-btn.active {
-  color: var(--text-bright);
   background: var(--bg-active-item);
+  color: var(--text-bright);
 }
 
-/* Scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.athena-btn-primary {
+  background: var(--accent-primary);
+  color: #ffffff;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+.athena-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(121, 121, 121, 0.35);
+
+.athena-btn-secondary {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  font-size: 12px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(121, 121, 121, 0.55);
+
+.athena-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
 }

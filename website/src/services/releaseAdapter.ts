@@ -1,15 +1,92 @@
+import {
+  getAllReleases,
+  getLatestStableRelease,
+  getReleaseByTag,
+} from '../backend/index';
+import type {
+  Platform as BackendPlatform,
+  Release as BackendRelease,
+  ReleaseAsset as BackendAsset,
+} from '../backend/types/release';
 import { MOCK_RELEASES } from '../data/mockReleases';
 import {
   ApiResponse,
+  Architecture,
+  PlatformId,
   Release,
+  ReleaseAsset,
   ReleaseListPayload,
   ReleaseQueryParams,
 } from '../types/release';
 
 export interface ReleaseDataAdapter {
-  getLatestRelease(): Promise<ApiResponse<Release | null>>;
-  listReleases(params?: ReleaseQueryParams): Promise<ApiResponse<ReleaseListPayload>>;
-  getReleaseByTag(tag: string): Promise<ApiResponse<Release | null>>;
+  getLatestRelease(bypassCache?: boolean): Promise<ApiResponse<Release | null>>;
+  listReleases(params?: ReleaseQueryParams & { bypassCache?: boolean }): Promise<ApiResponse<ReleaseListPayload>>;
+  getReleaseByTag(tag: string, bypassCache?: boolean): Promise<ApiResponse<Release | null>>;
+}
+
+function mapPlatform(p: BackendPlatform): PlatformId | null {
+  switch (p) {
+    case 'Windows':
+      return 'windows';
+    case 'macOS':
+      return 'macos';
+    case 'Linux':
+      return 'linux';
+    default:
+      return null;
+  }
+}
+
+function mapArchitecture(arch: BackendAsset['architecture']): Architecture {
+  if (arch === 'arm64' || arch === 'universal') return arch;
+  return 'x64';
+}
+
+export function mapBackendReleaseToFrontend(rel: BackendRelease): Release {
+  const assets: ReleaseAsset[] = [];
+  for (const a of rel.assets) {
+    const plat = mapPlatform(a.platform);
+    if (!plat || !a.isAvailable || !a.isInstaller) continue;
+    assets.push({
+      id: String(a.id),
+      platform: plat,
+      architecture: mapArchitecture(a.architecture),
+      fileName: a.name,
+      downloadUrl: a.downloadUrl,
+      fileSizeBytes: a.sizeBytes ?? undefined,
+      checksumSha256: a.checksumType === 'sha256' && a.checksum ? a.checksum : undefined,
+      assetType: a.format === 'zip' || a.format === 'tar.gz' ? 'archive' : 'installer',
+      installerFormat: `.${a.format}`,
+    });
+  }
+
+  const hasPlatform = (p: BackendPlatform) =>
+    rel.compatibility.supportedPlatforms.includes(p);
+
+  return {
+    id: String(rel.id),
+    version: rel.version,
+    tag: rel.tagName,
+    title: rel.title,
+    description: rel.description,
+    releaseDate: rel.publishedAt ?? rel.updatedAt ?? new Date().toISOString(),
+    releaseNotes: rel.body || rel.description,
+    releaseChannel: rel.isPrerelease ? 'beta' : 'stable',
+    isPrerelease: rel.isPrerelease,
+    compatibility: {
+      osRequirements: {
+        windows: hasPlatform('Windows') ? 'Windows 10 / 11 (64-bit)' : null,
+        macos: hasPlatform('macOS') ? 'macOS 12+' : null,
+        linux: hasPlatform('Linux') ? 'Linux (x64)' : null,
+      },
+      minRamGb: 8,
+      recommendedRamGb: 16,
+      ollamaRequired: true,
+      recommendedModels: ['qwen2.5-coder:1.5b'],
+    },
+    assets,
+  };
 }
 
 export function filterAndPaginateReleases(
@@ -72,6 +149,78 @@ export function filterAndPaginateReleases(
   };
 }
 
+export class BackendGitHubReleaseAdapter implements ReleaseDataAdapter {
+  async getLatestRelease(bypassCache = false): Promise<ApiResponse<Release | null>> {
+    const res = await getLatestStableRelease({ bypassCache });
+    if (!res.ok) {
+      const resetNote = res.meta.rateLimitResetAt
+        ? ` (Resets at ${new Date(res.meta.rateLimitResetAt).toLocaleTimeString()})`
+        : '';
+      throw new Error((res.error?.message ?? 'Unable to load latest release') + resetNote);
+    }
+    return {
+      data: res.data ? mapBackendReleaseToFrontend(res.data) : null,
+      fetchedAt: res.meta.fetchedAt,
+      source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
+    };
+  }
+
+  async listReleases(
+    params: ReleaseQueryParams & { bypassCache?: boolean } = {}
+  ): Promise<ApiResponse<ReleaseListPayload>> {
+    const res = await getAllReleases({
+      page: params.page ?? 1,
+      perPage: params.pageSize ?? 20,
+      includePrereleases: params.channel !== 'stable',
+      channel: params.channel === 'stable' ? 'stable' : undefined,
+      bypassCache: params.bypassCache,
+    });
+    if (!res.ok) {
+      const resetNote = res.meta.rateLimitResetAt
+        ? ` (Resets at ${new Date(res.meta.rateLimitResetAt).toLocaleTimeString()})`
+        : '';
+      throw new Error((res.error?.message ?? 'Unable to load releases') + resetNote);
+    }
+
+    const mapped = res.data.releases.map(mapBackendReleaseToFrontend);
+    const filtered = filterAndPaginateReleases(mapped, {
+      ...params,
+      page: 1,
+      pageSize: mapped.length || 10,
+    });
+
+    return {
+      data: {
+        releases: filtered.releases,
+        total: filtered.total,
+        page: res.data.page,
+        pageSize: res.data.perPage,
+        hasMore: res.data.hasNextPage,
+      },
+      fetchedAt: res.meta.fetchedAt,
+      source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
+    };
+  }
+
+  async getReleaseByTag(tag: string, bypassCache = false): Promise<ApiResponse<Release | null>> {
+    const res = await getReleaseByTag(tag, { bypassCache });
+    if (!res.ok) {
+      throw new Error(res.error?.message ?? 'Unable to load release details');
+    }
+    return {
+      data: res.data ? mapBackendReleaseToFrontend(res.data) : null,
+      fetchedAt: res.meta.fetchedAt,
+      source: 'api',
+      isStale: res.meta.isStale,
+      rateLimitResetAt: res.meta.rateLimitResetAt,
+    };
+  }
+}
+
 export class MockReleaseAdapter implements ReleaseDataAdapter {
   private readonly releases: Release[];
 
@@ -130,8 +279,7 @@ export class HttpReleaseAdapter implements ReleaseDataAdapter {
       throw new Error(`Release service responded with ${response.status} ${response.statusText}`);
     }
 
-    const payload = (await response.json()) as ApiResponse<T>;
-    return payload;
+    return (await response.json()) as ApiResponse<T>;
   }
 
   async getLatestRelease(): Promise<ApiResponse<Release | null>> {
@@ -156,7 +304,10 @@ export class HttpReleaseAdapter implements ReleaseDataAdapter {
 }
 
 const apiBaseUrl = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+const useMock = import.meta.env?.VITE_USE_MOCK_RELEASES === 'true';
 
-export const releaseService: ReleaseDataAdapter = apiBaseUrl
+export const releaseService: ReleaseDataAdapter = useMock
+  ? new MockReleaseAdapter()
+  : apiBaseUrl
   ? new HttpReleaseAdapter(apiBaseUrl)
-  : new MockReleaseAdapter();
+  : new BackendGitHubReleaseAdapter();

@@ -11,11 +11,11 @@ import {
   Laptop,
   Code2,
 } from 'lucide-react';
-import { AppMode, OllamaStatus, NovaSettings } from '@common/types.js';
+import { AppMode, OllamaStatus, AthenaSettings } from '@common/types.js';
 import { AthenaMark } from './AthenaMark.js';
 
 interface HeaderProps {
-  settings: NovaSettings;
+  settings: AthenaSettings;
   ollamaStatus: OllamaStatus | null;
   currentWorkspace: string | null;
   isSidebarVisible: boolean;
@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       style={{
         height: '36px',
-        background: 'var(--bg-surface)',
+        background: 'var(--bg-titlebar)',
         borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',

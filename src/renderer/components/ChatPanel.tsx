@@ -1,93 +1,242 @@
-import React, { useState } from 'react';
-import { Send, Bot, User, Plus, X, Sparkles, Layers } from 'lucide-react';
-import { OllamaStatus, NovaSettings } from '@common/types.js';
+import React, { useEffect, useState } from 'react';
 import {
-  AgentExecutionMode,
-  OFFLINE_AGENT_PLACEHOLDERS,
-} from '../types/workbench.js';
+  AlertTriangle,
+  Bot,
+  Check,
+  Copy,
+  FileDiff,
+  Plus,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react';
+import {
+  AthenaSettings,
+  ConversationMessage,
+  ConversationRecord,
+  OllamaChatMessage,
+  OllamaStatus,
+  ProposedFileEdit,
+} from '@common/types.js';
 
 interface ChatPanelProps {
-  settings: NovaSettings;
+  settings: AthenaSettings;
   ollamaStatus: OllamaStatus | null;
-  isVisible?: boolean;
-  selectedAgentId?: string;
-  agentMode?: AgentExecutionMode;
-  onSelectAgent?: (agentId: string) => void;
-  onChangeAgentMode?: (mode: AgentExecutionMode) => void;
-  onClose?: () => void;
+  isVisible: boolean;
+  currentWorkspace: string | null;
+  activeFile?: { path: string; relativePath: string; content: string };
+  selectionText?: string;
+  onClose: () => void;
   onOpenOnboarding: () => void;
+  onPreviewProposedEdit: (edit: ProposedFileEdit) => void;
+  onApplyProposedEdits: (edits: ProposedFileEdit[], label: string) => Promise<void>;
 }
 
-interface Message {
-  id: string;
-  sender: 'user' | 'assistant' | 'system';
-  text: string;
-  timestamp: string;
+function parseProposedEdits(markdown: string): ProposedFileEdit[] {
+  const edits: ProposedFileEdit[] = [];
+  const regex = /```athena-edit\s+path="([^"]+)"(?:\s+action="(create|modify|delete)")?\s*\n([\s\S]*?)```/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(markdown)) !== null) {
+    const relativePath = match[1]?.trim();
+    const action = (match[2] as ProposedFileEdit['action'] | undefined) ?? 'modify';
+    const newContent = match[3] ?? '';
+    if (relativePath) {
+      edits.push({ relativePath, action, newContent });
+    }
+  }
+  return edits;
 }
-
-const INITIAL_MESSAGE: Message = {
-  id: 'welcome-1',
-  sender: 'assistant',
-  text: 'Ready in offline agent placeholder mode. Pick a local coding agent below (e.g., Ollama Coder) — real streaming & file tools will wire in next.',
-  timestamp: 'Now',
-};
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   settings,
   ollamaStatus,
-  isVisible = true,
-  selectedAgentId = 'ollama-coder',
-  agentMode = 'planning',
-  onSelectAgent,
-  onChangeAgentMode,
+  isVisible,
+  currentWorkspace,
+  activeFile,
+  selectionText,
   onClose,
   onOpenOnboarding,
+  onPreviewProposedEdit,
+  onApplyProposedEdits,
 }) => {
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
+  const [threadId, setThreadId] = useState<string>(`conv-${Date.now()}`);
+  const [savedThreads, setSavedThreads] = useState<ConversationRecord[]>([]);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [input, setInput] = useState('');
+  const [includeFile, setIncludeFile] = useState(true);
+  const [includeSelection, setIncludeSelection] = useState(true);
+  const [includeKnowledge, setIncludeKnowledge] = useState(false);
+  const [streamingRequestId, setStreamingRequestId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const loadThreads = async () => {
+    if (!window.athenaApi) return;
+    setSavedThreads(await window.athenaApi.listConversations());
+  };
+
+  useEffect(() => {
+    void loadThreads();
+  }, []);
+
+  useEffect(() => {
+    if (!window.athenaApi) return;
+    return window.athenaApi.onOllamaChatChunk((ev) => {
+      if (ev.delta) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `assistant-${ev.requestId}`
+              ? { ...m, content: m.content + ev.delta }
+              : m
+          )
+        );
+      }
+      if (ev.done) {
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
+            m.id === `assistant-${ev.requestId}`
+              ? { ...m, proposedEdits: parseProposedEdits(m.content) }
+              : m
+          );
+          const firstUser = updated.find((m) => m.role === 'user');
+          if (window.athenaApi && updated.length > 0) {
+            void window.athenaApi
+              .saveConversation({
+                id: threadId,
+                title: (firstUser?.content || 'Athena Thread').slice(0, 48),
+                model: settings.selectedModel || ollamaStatus?.models[0]?.name || 'local',
+                workspacePath: currentWorkspace,
+                updatedAt: new Date().toISOString(),
+                messages: updated,
+              })
+              .then(loadThreads);
+          }
+          return updated;
+        });
+        setStreamingRequestId(null);
+      }
+    });
+  }, [threadId, settings.selectedModel, ollamaStatus?.models, currentWorkspace]);
 
   if (!isVisible) return null;
 
-  const activePreset =
-    OFFLINE_AGENT_PLACEHOLDERS.find((a) => a.id === selectedAgentId) ??
-    OFFLINE_AGENT_PLACEHOLDERS[0];
-  const isModelReady = ollamaStatus?.isAvailable && (settings.selectedModel || ollamaStatus.models.length > 0);
+  const activeModel =
+    settings.selectedModel || ollamaStatus?.models[0]?.name || '';
+  const isOllamaReady = Boolean(ollamaStatus?.isAvailable && activeModel);
 
-  const handleSend = (overrideText?: string) => {
-    const content = (overrideText ?? input).trim();
-    if (!content) return;
+  const startNewThread = () => {
+    setThreadId(`conv-${Date.now()}`);
+    setMessages([]);
+  };
 
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text: content,
-      timestamp: nowTime,
+  const sendPrompt = async (overridePrompt?: string) => {
+    const promptText = (overridePrompt ?? input).trim();
+    if (!promptText || streamingRequestId || !window.athenaApi) return;
+
+    if (!isOllamaReady) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-${Date.now()}`,
+          role: 'system',
+          content:
+            'Local Ollama or a selected coding model is unavailable. Install Ollama from https://ollama.com/ and pull a coding model such as `ollama run qwen2.5-coder:1.5b` or `ollama run codellama`.',
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+      return;
+    }
+
+    const reqId = `req-${Date.now()}`;
+    const userMsg: ConversationMessage = {
+      id: `user-${reqId}`,
+      role: 'user',
+      content: promptText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const replyMsg: Message = ollamaStatus?.isAvailable
-      ? {
-          id: `sys-${Date.now() + 1}`,
-          sender: 'assistant',
-          text: `[Placeholder — ${activePreset.name} | ${agentMode} mode] Prompt queued for local UI preview. Live Ollama streaming & workspace edits will connect in Milestone 2/4.`,
-          timestamp: nowTime,
-        }
-      : {
-          id: `sys-${Date.now() + 1}`,
-          sender: 'system',
-          text: `Local Ollama is offline (${activePreset.name} placeholder active). Start Ollama at ${settings.ollamaEndpoint} when ready for live local inference.`,
-          timestamp: nowTime,
-        };
+    const assistantMsg: ConversationMessage = {
+      id: `assistant-${reqId}`,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
 
-    setMessages((prev) => [...prev, userMsg, replyMsg]);
-    if (!overrideText) setInput('');
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    if (!overridePrompt) setInput('');
+    setStreamingRequestId(reqId);
+
+    const contextBlocks: string[] = [];
+    if (currentWorkspace) contextBlocks.push(`Workspace: ${currentWorkspace}`);
+    if (includeFile && activeFile) {
+      contextBlocks.push(`Active file (${activeFile.relativePath}):\n\`\`\`\n${activeFile.content.slice(0, 6000)}\n\`\`\``);
+    }
+    if (includeSelection && selectionText?.trim()) {
+      contextBlocks.push(`Selected code:\n\`\`\`\n${selectionText.slice(0, 3000)}\n\`\`\``);
+    }
+    if (includeKnowledge) {
+      const hits = await window.athenaApi.queryKnowledge(promptText, 3);
+      if (hits.length > 0) {
+        contextBlocks.push(
+          `athena.data knowledge hits:\n${hits
+            .map((h) => `- ${h.filePath}: ${h.excerpt}`)
+            .join('\n')}`
+        );
+      }
+    }
+
+    const systemPrompt = [
+      'You are Athena.IDE Local Coding Assistant running offline via Ollama.',
+      'Be accurate, concise, and never invent file contents you did not see.',
+      'When proposing file changes, you may format an editable proposal block as:',
+      '```athena-edit path="relative/path.ext" action="modify"\n<full updated file content>\n```',
+      contextBlocks.join('\n\n'),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const chatPayload: OllamaChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-8)
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      { role: 'user', content: promptText },
+    ];
+
+    const res = await window.athenaApi.streamOllamaChat(
+      reqId,
+      activeModel,
+      chatPayload,
+      settings.ollamaEndpoint
+    );
+
+    if (!res.ok && res.error) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === `assistant-${reqId}`
+            ? { ...m, content: m.content || `Error: ${res.error}` }
+            : m
+        )
+      );
+      setStreamingRequestId(null);
+    }
+  };
+
+  const copyText = async (id: string, text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
   };
 
   return (
     <aside
-      aria-label="Athena Agent Panel"
+      aria-label="Athena AI Panel"
       style={{
-        width: '340px',
+        width: 350,
         background: 'var(--bg-surface)',
         borderLeft: '1px solid var(--border-subtle)',
         display: 'flex',
@@ -96,10 +245,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         flexShrink: 0,
       }}
     >
-      {/* Antigravity-style Agent Header */}
+      {/* Header */}
       <div
         style={{
-          height: '35px',
+          height: 35,
           padding: '0 10px 0 12px',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
@@ -107,255 +256,255 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           justifyContent: 'space-between',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 600, fontSize: '12px', color: 'var(--text-bright)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12, color: 'var(--text-bright)' }}>
           <Sparkles size={14} color="var(--accent-cyan)" />
-          <span>Athena Agent</span>
-          <span
-            style={{
-              fontSize: '10px',
-              padding: '1px 5px',
-              borderRadius: '4px',
-              background: 'var(--bg-surface-elevated)',
-              color: isModelReady ? 'var(--success)' : 'var(--warning)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            {isModelReady ? (settings.selectedModel || 'Ollama Ready') : 'Placeholder'}
-          </span>
+          <span>Athena AI</span>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button
-            type="button"
-            className="workbench-icon-btn"
-            title="New Agent Thread"
-            aria-label="New Agent Thread"
-            onClick={() => setMessages([INITIAL_MESSAGE])}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button type="button" className="workbench-icon-btn" title="New Conversation" onClick={startNewThread}>
             <Plus size={14} />
           </button>
-          {onClose && (
-            <button
-              type="button"
-              className="workbench-icon-btn"
-              title="Hide Agent Panel (Ctrl+L)"
-              aria-label="Hide Agent Panel"
-              onClick={onClose}
-            >
-              <X size={14} />
-            </button>
-          )}
+          <button type="button" className="workbench-icon-btn" title="Clear Messages" onClick={() => setMessages([])}>
+            <Trash2 size={13} />
+          </button>
+          <button type="button" className="workbench-icon-btn" title="Hide AI Panel (Ctrl+L)" onClick={onClose}>
+            <X size={14} />
+          </button>
         </div>
       </div>
 
-      {/* Antigravity Task Plan Placeholder Card */}
-      <div
-        style={{
-          margin: '10px 10px 0',
-          padding: '8px 10px',
-          borderRadius: '6px',
-          background: 'var(--bg-surface-elevated)',
-          border: '1px solid var(--border-subtle)',
-          fontSize: '11px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span style={{ fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Layers size={12} color="var(--accent-cyan)" />
-            Agent Workflow (Placeholder)
+      {/* Privacy & Thread Selector */}
+      <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: isOllamaReady ? 'var(--success)' : 'var(--warning)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ShieldCheck size={12} />
+            {isOllamaReady ? `Local: ${activeModel}` : 'Ollama Offline / No Model'}
           </span>
-          <span style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>{agentMode}</span>
+          <span style={{ color: 'var(--text-muted)' }}>127.0.0.1</span>
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-          1. Inspect workspace → 2. Plan changes → 3. Verify locally
-        </p>
+
+        {savedThreads.length > 0 && (
+          <select
+            aria-label="Conversation History"
+            value={threadId}
+            onChange={(e) => {
+              const found = savedThreads.find((t) => t.id === e.target.value);
+              if (found) {
+                setThreadId(found.id);
+                setMessages(found.messages);
+              }
+            }}
+            style={{ fontSize: 11, padding: '2px 6px' }}
+          >
+            <option value={threadId}>Current Thread ({messages.length} msgs)</option>
+            {savedThreads.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* Message List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-        }}
-      >
+      {/* Fail-safe when Ollama unavailable */}
+      {!ollamaStatus?.isAvailable && (
+        <div
+          style={{
+            margin: 10,
+            padding: 10,
+            borderRadius: 4,
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--warning)',
+            fontSize: 11,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: 'var(--warning)' }}>
+            <AlertTriangle size={13} />
+            Ollama Not Detected
+          </div>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Download Ollama from <code>https://ollama.com/</code> and install a lightweight coding model:
+          </p>
+          <code style={{ padding: '4px 6px', background: 'var(--bg-app)', fontFamily: 'var(--font-mono)' }}>
+            ollama run qwen2.5-coder:1.5b
+          </code>
+          <button type="button" className="athena-btn-primary" onClick={onOpenOnboarding}>
+            Open Offline AI Setup Wizard
+          </button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p>Ask Athena AI to explain, debug, refactor, or generate code locally.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {[
+                ['Explain file', 'Explain what the active file does step by step.'],
+                ['Write tests', 'Generate Vitest unit tests for the active file.'],
+                ['Find bugs', 'Review the active file for potential bugs or edge cases.'],
+                ['Refactor', 'Suggest a clean refactor for the selected code.'],
+              ].map(([label, prompt]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="athena-btn-secondary"
+                  style={{ fontSize: 11, padding: '3px 7px' }}
+                  onClick={() => void sendPrompt(prompt)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((msg) => (
           <div
             key={msg.id}
             style={{
               display: 'flex',
               flexDirection: 'column',
-              alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '94%',
+              gap: 4,
+              alignSelf: msg.role === 'user' ? 'flex-end' : 'stretch',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '10px',
-                color: 'var(--text-muted)',
-                marginBottom: '3px',
-                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              {msg.sender === 'user' ? <User size={11} /> : <Bot size={11} />}
-              <span>{msg.sender === 'user' ? 'You' : msg.sender === 'system' ? 'System' : activePreset.name}</span>
-              <span>•</span>
-              <span>{msg.timestamp}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {msg.role === 'user' ? <User size={11} /> : <Bot size={11} />}
+                {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : activeModel || 'Athena'} · {msg.timestamp}
+              </span>
+              {msg.content && (
+                <button
+                  type="button"
+                  title="Copy response"
+                  onClick={() => void copyText(msg.id, msg.content)}
+                  style={{ padding: 2 }}
+                >
+                  {copiedId === msg.id ? <Check size={11} color="var(--success)" /> : <Copy size={11} />}
+                </button>
+              )}
             </div>
+
             <div
               style={{
                 padding: '8px 10px',
-                borderRadius: '6px',
-                fontSize: '12px',
+                borderRadius: 4,
+                fontSize: 12,
                 lineHeight: 1.5,
                 userSelect: 'text',
-                background:
-                  msg.sender === 'user'
-                    ? 'var(--accent-primary)'
-                    : 'var(--bg-surface-elevated)',
-                color: msg.sender === 'user' ? '#ffffff' : 'var(--text-primary)',
-                border:
-                  msg.sender === 'system'
-                    ? '1px solid var(--warning)'
-                    : '1px solid var(--border-subtle)',
+                whiteSpace: 'pre-wrap',
+                background: msg.role === 'user' ? 'var(--accent-primary)' : 'var(--bg-surface-elevated)',
+                color: msg.role === 'user' ? '#ffffff' : 'var(--text-primary)',
+                border: msg.role === 'system' ? '1px solid var(--warning)' : '1px solid var(--border-subtle)',
               }}
             >
-              {msg.text}
+              {msg.content || (streamingRequestId && msg.id.endsWith(streamingRequestId) ? 'Thinking locally...' : '')}
             </div>
+
+            {msg.proposedEdits && msg.proposedEdits.length > 0 && (
+              <div
+                style={{
+                  padding: 8,
+                  borderRadius: 4,
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--accent-primary)',
+                  fontSize: 11,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                  Proposed File Edits ({msg.proposedEdits.length})
+                </div>
+                {msg.proposedEdits.map((ed, i) => (
+                  <div key={`${ed.relativePath}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>
+                      [{ed.action}] <code>{ed.relativePath}</code>
+                    </span>
+                    <button
+                      type="button"
+                      className="athena-btn-secondary"
+                      style={{ fontSize: 10, padding: '2px 6px' }}
+                      onClick={() => onPreviewProposedEdit(ed)}
+                    >
+                      <FileDiff size={11} />
+                      Diff
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="athena-btn-primary"
+                  onClick={() => void onApplyProposedEdits(msg.proposedEdits!, 'Athena AI Approved Edit')}
+                >
+                  <Check size={12} />
+                  Create Snapshot &amp; Apply Changes
+                </button>
+              </div>
+            )}
           </div>
         ))}
-
-        {!ollamaStatus?.isAvailable && (
-          <div
-            style={{
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-strong)',
-              borderRadius: '6px',
-              padding: '10px',
-              fontSize: '11px',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <p style={{ fontWeight: 600, color: 'var(--warning)', marginBottom: '4px' }}>
-              Offline AI Setup
-            </p>
-            <p style={{ marginBottom: '6px' }}>
-              Athena.IDE runs strictly locally without cloud APIs. Connect Ollama when ready for live agents.
-            </p>
-            <button
-              type="button"
-              onClick={onOpenOnboarding}
-              style={{
-                background: 'var(--accent-primary)',
-                color: '#ffffff',
-                padding: '4px 8px',
-                fontSize: '11px',
-              }}
-            >
-              Setup Instructions
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Antigravity-style Composer Card */}
-      <div
-        style={{
-          padding: '8px 10px 10px',
-          borderTop: '1px solid var(--border-subtle)',
-          background: 'var(--bg-surface)',
-        }}
-      >
-        <div
-          style={{
-            background: 'var(--bg-input)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: '8px',
-            padding: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
+      {/* Composer */}
+      <div style={{ padding: 8, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 10, color: 'var(--text-secondary)' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <input type="checkbox" checked={includeFile} onChange={(e) => setIncludeFile(e.target.checked)} />
+            File
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <input type="checkbox" checked={includeSelection} onChange={(e) => setIncludeSelection(e.target.checked)} />
+            Selection
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <input type="checkbox" checked={includeKnowledge} onChange={(e) => setIncludeKnowledge(e.target.checked)} />
+            athena.data Index
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
           <textarea
             rows={2}
-            placeholder={`Ask ${activePreset.name} to plan or edit code...`}
+            placeholder="Ask local Ollama model..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                void sendPrompt();
               }
             }}
-            style={{
-              width: '100%',
-              resize: 'none',
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              fontSize: '12px',
-              outline: 'none',
-            }}
+            style={{ flex: 1, fontSize: 12, resize: 'none' }}
           />
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
-              <select
-                aria-label="Select Local Offline Agent"
-                value={selectedAgentId}
-                onChange={(e) => onSelectAgent?.(e.target.value)}
-                style={{
-                  fontSize: '11px',
-                  padding: '2px 6px',
-                  maxWidth: '140px',
-                  background: 'var(--bg-surface-elevated)',
-                }}
-              >
-                {OFFLINE_AGENT_PLACEHOLDERS.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => onChangeAgentMode?.(agentMode === 'planning' ? 'fast' : 'planning')}
-                title="Switch Agent Execution Mode (Placeholder)"
-                style={{
-                  fontSize: '11px',
-                  padding: '2px 7px',
-                  background: 'var(--bg-surface-elevated)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
-                  textTransform: 'capitalize',
-                }}
-              >
-                {agentMode}
-              </button>
-            </div>
-
+          {streamingRequestId ? (
             <button
               type="button"
-              onClick={() => handleSend()}
-              aria-label="Send prompt"
-              style={{
-                background: 'var(--accent-primary)',
-                color: '#ffffff',
-                padding: '4px 10px',
-                fontSize: '11px',
+              className="athena-btn-secondary"
+              title="Stop generation"
+              onClick={() => {
+                void window.athenaApi?.abortOllamaChat(streamingRequestId);
+                setStreamingRequestId(null);
               }}
             >
-              <Send size={12} />
+              <Square size={13} color="var(--danger)" />
             </button>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="athena-btn-primary"
+              aria-label="Send prompt"
+              onClick={() => void sendPrompt()}
+            >
+              <Send size={13} />
+            </button>
+          )}
         </div>
       </div>
     </aside>
