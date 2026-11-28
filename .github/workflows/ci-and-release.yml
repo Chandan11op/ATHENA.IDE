@@ -8,6 +8,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify-desktop-and-website:
     runs-on: windows-latest
@@ -42,6 +45,8 @@ jobs:
     needs: verify-desktop-and-website
     runs-on: windows-latest
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -53,16 +58,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate release tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $pkgVer = (Get-Content package.json | ConvertFrom-Json).version
+          $tagVer = "${{ github.ref_name }}".TrimStart('v')
+          if ($pkgVer -ne $tagVer) {
+            Write-Error "Tag version ($tagVer) does not match package.json version ($pkgVer)."
+            exit 1
+          }
+
       - name: Build & Package Windows NSIS + Portable
         run: npm run pack:win
 
-      - name: Generate SHA-256 checksums
+      - name: Generate & verify SHA-256 checksums
         shell: pwsh
         run: |
+          Remove-Item -ErrorAction SilentlyContinue release/SHA256SUMS.txt
           Get-ChildItem -Path release -File | Where-Object { $_.Extension -in '.exe', '.msi', '.zip' } | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
             "$hash  $($_.Name)" | Out-File -FilePath "release/SHA256SUMS.txt" -Append -Encoding utf8
           }
+          if (-not (Test-Path release/SHA256SUMS.txt)) { exit 1 }
+          Get-Content release/SHA256SUMS.txt
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
@@ -72,3 +91,25 @@ jobs:
             release/*.exe
             release/SHA256SUMS.txt
           if-no-files-found: error
+
+      - name: Publish GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $ver = $tag.TrimStart('v')
+          $notesFile = "docs/releases/$ver.md"
+          $existing = gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Error "Release $tag already exists; refusing to overwrite."
+            exit 1
+          }
+          $files = @(Get-ChildItem -Path release -File | Where-Object { $_.Extension -eq '.exe' -or $_.Name -eq 'SHA256SUMS.txt' } | Select-Object -ExpandProperty FullName)
+          if ($files.Count -eq 0) { exit 1 }
+          if (Test-Path $notesFile) {
+            gh release create $tag @files --title "ATHENA.IDE $tag" --notes-file $notesFile
+          } else {
+            gh release create $tag @files --title "ATHENA.IDE $tag" --generate-notes
+          }

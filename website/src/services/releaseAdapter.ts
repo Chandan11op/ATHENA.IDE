@@ -56,7 +56,11 @@ export function mapBackendReleaseToFrontend(rel: BackendRelease): Release {
       downloadUrl: a.downloadUrl,
       fileSizeBytes: a.sizeBytes ?? undefined,
       checksumSha256: a.checksumType === 'sha256' && a.checksum ? a.checksum : undefined,
-      assetType: a.format === 'zip' || a.format === 'tar.gz' ? 'archive' : 'installer',
+      assetType: a.name.toLowerCase().includes('portable')
+        ? 'portable'
+        : a.format === 'zip' || a.format === 'tar.gz'
+        ? 'archive'
+        : 'installer',
       installerFormat: `.${a.format}`,
     });
   }
@@ -74,6 +78,7 @@ export function mapBackendReleaseToFrontend(rel: BackendRelease): Release {
     releaseNotes: rel.body || rel.description,
     releaseChannel: rel.isPrerelease ? 'beta' : 'stable',
     isPrerelease: rel.isPrerelease,
+    releaseUrl: rel.releaseUrl,
     compatibility: {
       osRequirements: {
         windows: hasPlatform('Windows') ? 'Windows 10 / 11 (64-bit)' : null,

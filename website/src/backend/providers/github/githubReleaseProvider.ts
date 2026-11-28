@@ -111,7 +111,7 @@ export class GitHubReleaseProvider {
     this.apiBaseUrl = (config.apiBaseUrl ?? DEFAULT_API_BASE).replace(/\/+$/, '');
     this.token = config.token;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchImpl = config.fetchImpl ?? fetch;
+    this.fetchImpl = config.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   }
 
   private buildHeaders(etag?: string): Record<string, string> {

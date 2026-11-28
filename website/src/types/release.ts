@@ -39,6 +39,7 @@ export interface Release {
   changelog?: ReleaseChangelog;
   releaseChannel: ReleaseChannel;
   isPrerelease: boolean;
+  releaseUrl?: string;
   compatibility: ReleaseCompatibility;
   assets: ReleaseAsset[];
 }

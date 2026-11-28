@@ -2,13 +2,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   Clock,
+  Cpu,
   Download,
   ExternalLink,
   HardDrive,
   Laptop,
   RefreshCw,
+  ShieldCheck,
   Terminal,
 } from 'lucide-react';
 import { useLatestRelease } from '@/hooks/useReleases';
@@ -26,7 +29,7 @@ const PLATFORMS: Array<{
   label: string;
   formats: string;
 }> = [
-  { id: 'windows', label: 'Windows', formats: '.exe / .msi (x64)' },
+  { id: 'windows', label: 'Windows', formats: 'Windows 10 / 11 (x64) · .exe setup & portable' },
   { id: 'macos', label: 'macOS', formats: '.dmg (arm64 / x64)' },
   { id: 'linux', label: 'Linux', formats: '.AppImage / .deb (x64)' },
 ];
@@ -37,7 +40,12 @@ export const DownloadPage: React.FC = () => {
 
   const getAssetsForPlatform = (platform: PlatformId): ReleaseAsset[] => {
     if (!latest) return [];
-    return latest.assets.filter((asset) => asset.platform === platform);
+    const matched = latest.assets.filter((asset) => asset.platform === platform);
+    return [...matched].sort((a, b) => {
+      if (a.assetType === 'installer' && b.assetType !== 'installer') return -1;
+      if (b.assetType === 'installer' && a.assetType !== 'installer') return 1;
+      return 0;
+    });
   };
 
   return (
@@ -47,8 +55,8 @@ export const DownloadPage: React.FC = () => {
           <span className="section-eyebrow">Desktop Application</span>
           <h1 className="page-title">Download ATHENA.IDE</h1>
           <p className="page-lead">
-            Get the offline-first desktop IDE powered by local Ollama models. Only
-            verified release assets supplied by the release service are shown below.
+            Get the offline-first desktop IDE powered by local Ollama models. Download
+            links below are retrieved live from official GitHub Releases.
           </p>
         </div>
       </section>
@@ -58,9 +66,8 @@ export const DownloadPage: React.FC = () => {
           {source === 'mock' && status === 'ready' && (
             <div className="notice-banner" role="status">
               <div>
-                <strong>Local Preview Data Adapter Active:</strong> Displaying the
-                repository baseline (<code>v0.1.0</code>). Live installer binaries will
-                appear automatically once connected to the release backend.
+                <strong>Local Preview Data Adapter Active:</strong> Displaying local
+                development metadata.
               </div>
               <Link to="/docs#installation" className="btn btn-secondary btn-sm">
                 Build from Source Guide
@@ -166,21 +173,27 @@ export const DownloadPage: React.FC = () => {
                       Release Notes
                       <ArrowRight size={14} />
                     </Link>
+                    {latest.releaseUrl && (
+                      <a
+                        href={latest.releaseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm"
+                      >
+                        GitHub Release
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
                     <Link to="/releases" className="btn btn-ghost btn-sm">
                       All Releases
                     </Link>
                   </div>
                 </div>
               ) : (
-                <div className="notice-banner">
+                <div className="notice-banner" role="status">
                   <div>
-                    <strong>Under Active Development — No Verified Release Published Yet.</strong>{' '}
-                    Athena.IDE has not yet published pre-built desktop installers on GitHub
-                    Releases. You can inspect release history in the{' '}
-                    <Link to="/releases" style={{ textDecoration: 'underline' }}>
-                      Release Archive
-                    </Link>
-                    , check{' '}
+                    <strong>ATHENA.IDE is currently being prepared for its first desktop release.</strong>{' '}
+                    No published installer binaries exist on GitHub Releases yet. Check{' '}
                     <a
                       href="https://github.com/Chandan11op/ATHENA.IDE/releases"
                       target="_blank"
@@ -188,8 +201,8 @@ export const DownloadPage: React.FC = () => {
                       style={{ textDecoration: 'underline' }}
                     >
                       GitHub Releases
-                    </a>
-                    , or build from source below.
+                    </a>{' '}
+                    or build directly from source below.
                   </div>
                   <button
                     type="button"
@@ -238,28 +251,59 @@ export const DownloadPage: React.FC = () => {
                             color: 'var(--text-secondary)',
                           }}
                         >
-                          {osReq ?? `Target formats: ${plat.formats}`}
+                          {osReq ?? plat.formats}
                         </p>
                       </div>
 
                       {assets.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {assets.map((asset) => (
-                            <a
-                              key={asset.id}
-                              href={asset.downloadUrl}
-                              className="btn btn-primary"
-                              style={{ justifyContent: 'space-between' }}
-                            >
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
-                                <Download size={16} />
-                                {asset.installerFormat} ({asset.architecture})
-                              </span>
-                              <span style={{ fontSize: 'var(--text-xs)', opacity: 0.9 }}>
-                                {formatBytes(asset.fileSizeBytes)}
-                              </span>
-                            </a>
-                          ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {assets.map((asset, index) => {
+                            const isPrimary =
+                              asset.assetType === 'installer' || (index === 0 && asset.assetType !== 'portable');
+                            return (
+                              <div
+                                key={asset.id}
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.35rem',
+                                }}
+                              >
+                                <a
+                                  href={asset.downloadUrl}
+                                  download={asset.fileName}
+                                  rel="noopener noreferrer"
+                                  className={`btn ${isPrimary ? 'btn-primary' : 'btn-secondary'}`}
+                                  style={{ justifyContent: 'space-between' }}
+                                >
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                                    <Download size={16} />
+                                    {asset.assetType === 'portable'
+                                      ? `Portable (${asset.architecture})`
+                                      : `Download Installer (${asset.installerFormat} · ${asset.architecture})`}
+                                  </span>
+                                  <span style={{ fontSize: 'var(--text-xs)', opacity: 0.9 }}>
+                                    {formatBytes(asset.fileSizeBytes)}
+                                  </span>
+                                </a>
+                                <div
+                                  style={{
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--text-muted)',
+                                    fontFamily: 'var(--font-mono)',
+                                    wordBreak: 'break-all',
+                                  }}
+                                >
+                                  {asset.fileName}
+                                  {asset.checksumSha256 && (
+                                    <div title={asset.checksumSha256}>
+                                      SHA-256: {asset.checksumSha256.slice(0, 16)}…
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <div
@@ -282,7 +326,9 @@ export const DownloadPage: React.FC = () => {
                           >
                             <Clock size={15} color="var(--text-muted)" aria-hidden="true" />
                             <span>
-                              {osReq ? 'Installer Coming Soon' : `Not Yet Available for ${getPlatformLabel(plat.id)}`}
+                              {osReq
+                                ? 'Installer Pending'
+                                : `Not Yet Available for ${getPlatformLabel(plat.id)}`}
                             </span>
                           </div>
                           <p
@@ -323,7 +369,7 @@ export const DownloadPage: React.FC = () => {
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <HardDrive size={18} color="var(--accent-cyan)" aria-hidden="true" />
-                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>System Requirements</h2>
+                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>System Requirements &amp; Installation</h2>
               </div>
               <ul
                 style={{
@@ -336,10 +382,52 @@ export const DownloadPage: React.FC = () => {
                   gap: '0.45rem',
                 }}
               >
-                <li>Windows 10 / 11 (64-bit) primary desktop MVP target</li>
-                <li>8 GB RAM minimum (16 GB recommended for local LLMs)</li>
-                <li>Node.js LTS &amp; Git (for project workflows and source builds)</li>
-                <li>Local Ollama installation (default endpoint: 127.0.0.1:11434)</li>
+                <li>Windows 10 / 11 (64-bit) primary desktop target</li>
+                <li>8 GB RAM minimum (16 GB recommended for larger local coding models)</li>
+                <li>Node.js LTS &amp; Git (for project workflows and local Source Control)</li>
+                <li>Verify downloaded executables against published SHA-256 checksums</li>
+              </ul>
+            </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <Cpu size={18} color="var(--accent-cyan)" aria-hidden="true" />
+                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Local AI Setup (Ollama)</h2>
+              </div>
+              <p style={{ margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                Ollama and AI models are <strong>not bundled</strong> inside the desktop
+                installer. Launch ATHENA.IDE to use the built-in Setup Wizard, or pull a
+                lightweight coding model manually:
+              </p>
+              <pre className="code-block">
+                <code>{`ollama pull qwen2.5-coder:1.5b`}</code>
+              </pre>
+              <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <Link to="/docs#local-ai-setup" className="btn btn-secondary btn-sm">
+                  Local AI Docs
+                </Link>
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <AlertTriangle size={18} color="var(--status-warning)" aria-hidden="true" />
+                <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Known Limitations</h2>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '1.15rem',
+                  color: 'var(--text-secondary)',
+                  fontSize: 'var(--text-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <li>Early development release — Windows binaries are not yet code-signed (Windows SmartScreen may prompt).</li>
+                <li>macOS and Linux pre-built packages are not yet published.</li>
+                <li>Offline AI requires local Ollama installed at <code>127.0.0.1:11434</code>.</li>
               </ul>
             </div>
 
@@ -347,7 +435,7 @@ export const DownloadPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <Terminal size={18} color="var(--accent-cyan)" aria-hidden="true" />
                 <h2 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>
-                  Run Desktop App from Source
+                  Build from Source
                 </h2>
               </div>
               <pre className="code-block">
@@ -358,17 +446,23 @@ npm run build
 npm start`}</code>
               </pre>
               <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <Link to="/docs#local-ai-setup" className="btn btn-secondary btn-sm">
-                  Local AI Setup
-                </Link>
                 <a
                   href="https://github.com/Chandan11op/ATHENA.IDE"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-ghost btn-sm"
                 >
-                  Source on GitHub
+                  GitHub Repository
                   <ExternalLink size={14} />
+                </a>
+                <a
+                  href="https://github.com/Chandan11op/ATHENA.IDE/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost btn-sm"
+                >
+                  <ShieldCheck size={14} />
+                  GitHub Releases
                 </a>
               </div>
             </div>
